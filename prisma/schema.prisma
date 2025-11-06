@@ -1,0 +1,453 @@
+// Schema para Sistema de Inventario PEPS
+// Cumple con todos los requisitos regulatorios del contrato público
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USUARIOS Y AUTENTICACIÓN
+// ============================================
+
+enum RolUsuario {
+  ADMINISTRADOR_CONTRATISTA
+  OPERADOR_BODEGA
+  FISCALIZADOR_PANI
+  AUDITOR
+}
+
+model Usuario {
+  id                String        @id @default(cuid())
+  email             String        @unique
+  nombre            String
+  passwordHash      String
+  rol               RolUsuario
+  activo            Boolean       @default(true)
+
+  // 2FA
+  twoFactorEnabled  Boolean       @default(false)
+  twoFactorSecret   String?
+
+  // Auditoría
+  creadoEn          DateTime      @default(now())
+  actualizadoEn     DateTime      @updatedAt
+  ultimoAcceso      DateTime?
+
+  // Relaciones
+  movimientos       Movimiento[]
+  cortesSolicitados Corte[]
+  bitacoras         Bitacora[]
+  sesiones          Sesion[]
+
+  @@map("usuarios")
+}
+
+model Sesion {
+  id           String   @id @default(cuid())
+  usuarioId    String
+  usuario      Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  token        String   @unique
+  ip           String?
+  userAgent    String?
+  creadoEn     DateTime @default(now())
+  expiraEn     DateTime
+
+  @@index([usuarioId])
+  @@map("sesiones")
+}
+
+// ============================================
+// UNIDADES RECEPTORAS
+// ============================================
+
+model UnidadReceptora {
+  id          String       @id @default(cuid())
+  codigo      String       @unique
+  nombre      String
+  direccion   String?
+  telefono    String?
+  responsable String?
+  activo      Boolean      @default(true)
+
+  creadoEn    DateTime     @default(now())
+  actualizadoEn DateTime   @updatedAt
+
+  // Relaciones
+  movimientos Movimiento[]
+
+  @@map("unidades_receptoras")
+}
+
+// ============================================
+// ARTÍCULOS Y CATÁLOGO SIGAF
+// ============================================
+
+model Articulo {
+  id                String    @id @default(cuid())
+  sku               String    @unique
+  nombre            String
+  descripcion       String?
+
+  // REQUERIMIENTO CRÍTICO: Descripción SIGAF obligatoria
+  descripcionSIGAF  String    // Texto exacto obligatorio según catálogo SIGAF
+  codigoSIGAF       String?   // Código interno del SIGAF si aplica
+
+  // Unidad de medida
+  unidadMedida      String    // ej: "unidades", "kg", "litros", etc.
+
+  // Control
+  activo            Boolean   @default(true)
+  requiereVencimiento Boolean @default(true)
+
+  // Inventario mínimo/máximo (opcional)
+  stockMinimo       Float?
+  stockMaximo       Float?
+
+  // Auditoría
+  creadoEn          DateTime  @default(now())
+  actualizadoEn     DateTime  @updatedAt
+
+  // Relaciones
+  lotes             Lote[]
+  movimientos       Movimiento[]
+
+  @@index([descripcionSIGAF])
+  @@map("articulos")
+}
+
+// ============================================
+// LOTES (IMPLEMENTACIÓN PEPS)
+// ============================================
+
+model Lote {
+  id                  String    @id @default(cuid())
+  articuloId          String
+  articulo            Articulo  @relation(fields: [articuloId], references: [id], onDelete: Restrict)
+
+  // Cantidades
+  cantidadInicial     Float
+  cantidadDisponible  Float
+
+  // REQUERIMIENTO CRÍTICO: Fecha de ingreso para PEPS
+  fechaIngresoTs      DateTime  @default(now()) // Timestamp exacto para ordenamiento PEPS
+
+  // REQUERIMIENTO CRÍTICO: Fecha de vencimiento
+  fechaVencimiento    DateTime
+
+  // Información adicional
+  numeroLote          String?   // Número de lote del proveedor
+  proveedor           String?
+  costoUnitario       Float?
+  ubicacion           String?   // Ubicación física en bodega
+
+  // Estado
+  activo              Boolean   @default(true)
+  agotado             Boolean   @default(false)
+
+  // Auditoría
+  creadoEn            DateTime  @default(now())
+  actualizadoEn       DateTime  @updatedAt
+
+  // Relaciones
+  movimientos         Movimiento[]
+  cortesDetalle       CorteDetalle[]
+
+  @@index([articuloId, fechaIngresoTs]) // Crítico para consultas PEPS
+  @@index([fechaVencimiento]) // Para alertas de vencimiento
+  @@map("lotes")
+}
+
+// ============================================
+// MOVIMIENTOS (ENTRADAS/SALIDAS/AJUSTES)
+// ============================================
+
+enum TipoMovimiento {
+  ENTRADA
+  SALIDA
+  TRANSFERENCIA
+  AJUSTE_INVENTARIO
+  DEVOLUCION
+}
+
+model Movimiento {
+  id                  String          @id @default(cuid())
+  tipo                TipoMovimiento
+
+  // Artículo y lote
+  articuloId          String
+  articulo            Articulo        @relation(fields: [articuloId], references: [id], onDelete: Restrict)
+
+  loteId              String?
+  lote                Lote?           @relation(fields: [loteId], references: [id], onDelete: Restrict)
+
+  // Cantidades
+  cantidad            Float
+  unidadMedida        String
+
+  // Unidad receptora (para salidas/transferencias)
+  unidadReceptoraId   String?
+  unidadReceptora     UnidadReceptora? @relation(fields: [unidadReceptoraId], references: [id])
+
+  // Documentación
+  motivo              String?         // Requerido para ajustes y anulaciones
+  documentoReferencia String?         // Número de factura, orden de compra, etc.
+  documentosAdjuntos  String[]        // URLs de documentos escaneados
+
+  // Usuario responsable
+  usuarioId           String
+  usuario             Usuario         @relation(fields: [usuarioId], references: [id])
+
+  // Receptor/Solicitante
+  receptorNombre      String?
+  receptorCedula      String?
+
+  // Auditoría y trazabilidad
+  timestamp           DateTime        @default(now())
+  ip                  String?
+  userAgent           String?
+
+  // Control de anulación
+  anulado             Boolean         @default(false)
+  motivoAnulacion     String?
+  anuladoEn           DateTime?
+  anuladoPorId        String?
+
+  // REQUERIMIENTO: Firma digital / hash del documento
+  hashDocumento       String?
+
+  @@index([articuloId, timestamp])
+  @@index([tipo, timestamp])
+  @@index([timestamp])
+  @@map("movimientos")
+}
+
+// ============================================
+// CORTES DE EXISTENCIAS
+// ============================================
+
+enum TipoCorte {
+  MENSUAL_AUTOMATICO
+  BAJO_DEMANDA
+  COMPRA_SEGUN_DEMANDA
+}
+
+model Corte {
+  id              String        @id @default(cuid())
+  tipo            TipoCorte
+
+  // Período
+  periodoInicio   DateTime?
+  periodoFin      DateTime?
+
+  // Timestamp del corte
+  timestamp       DateTime      @default(now())
+
+  // Solicitante
+  solicitadoPorId String
+  solicitadoPor   Usuario       @relation(fields: [solicitadoPorId], references: [id])
+
+  // Motivo (requerido para cortes bajo demanda)
+  motivo          String?
+
+  // REQUERIMIENTO CRÍTICO: Hash del snapshot (inmutable)
+  hashSnapshot    String        @unique
+
+  // Estado
+  completado      Boolean       @default(false)
+
+  // Metadatos
+  totalArticulos  Int?
+  totalLotes      Int?
+
+  creadoEn        DateTime      @default(now())
+
+  // Relaciones
+  detalles        CorteDetalle[]
+
+  @@index([timestamp])
+  @@index([tipo, timestamp])
+  @@map("cortes")
+}
+
+model CorteDetalle {
+  id              String   @id @default(cuid())
+  corteId         String
+  corte           Corte    @relation(fields: [corteId], references: [id], onDelete: Cascade)
+
+  // Snapshot del lote en ese momento
+  articuloId      String
+  articuloSku     String
+  articuloNombre  String
+  articuloDescripcionSIGAF String
+
+  loteId          String
+  lote            Lote     @relation(fields: [loteId], references: [id], onDelete: Restrict)
+
+  cantidad        Float
+  unidadMedida    String
+  fechaVencimiento DateTime
+  ubicacion       String?
+
+  creadoEn        DateTime @default(now())
+
+  @@index([corteId])
+  @@map("cortes_detalle")
+}
+
+// ============================================
+// INFORMES Y REPORTES
+// ============================================
+
+enum TipoInforme {
+  MENSUAL_INVENTARIO
+  QUINCENAL_MOVIMIENTOS
+  VENCIMIENTOS
+  EXISTENCIAS
+  AUDITORIA
+}
+
+enum EstadoInforme {
+  GENERANDO
+  COMPLETADO
+  FALLIDO
+  ENVIADO
+}
+
+model Informe {
+  id              String         @id @default(cuid())
+  tipo            TipoInforme
+  estado          EstadoInforme  @default(GENERANDO)
+
+  // Período
+  periodoInicio   DateTime
+  periodoFin      DateTime
+
+  // Archivos generados
+  archivoPDF      String?        // URL del PDF
+  archivoCSV      String?        // URL del CSV
+  archivoExcel    String?        // URL del Excel
+
+  // REQUERIMIENTO: Hash y firma digital
+  hashDocumento   String?
+  timestampFirma  DateTime?
+
+  // Envío al fiscalizador
+  enviadoFiscalizador Boolean    @default(false)
+  fechaEnvio      DateTime?
+  acuseRecibo     String?        // Hash o confirmación de recibo
+
+  // Metadatos
+  totalRegistros  Int?
+  generadoPorId   String?
+
+  // Auditoría
+  creadoEn        DateTime       @default(now())
+  actualizadoEn   DateTime       @updatedAt
+
+  @@index([tipo, periodoInicio])
+  @@index([creadoEn])
+  @@map("informes")
+}
+
+// ============================================
+// BITÁCORA INMUTABLE (AUDIT LOG)
+// ============================================
+
+model Bitacora {
+  id            String   @id @default(cuid())
+
+  // Usuario y contexto
+  usuarioId     String?
+  usuario       Usuario? @relation(fields: [usuarioId], references: [id])
+
+  // Acción realizada
+  accion        String   // ej: "CREAR_ARTICULO", "DESPACHO_PEPS", "AJUSTE_INVENTARIO"
+  entidad       String   // ej: "Articulo", "Movimiento", "Lote"
+  entidadId     String   // ID del registro afectado
+
+  // Cambios (JSON diff)
+  estadoAnterior String? @db.Text // JSON
+  estadoNuevo    String? @db.Text // JSON
+
+  // Contexto técnico
+  ip            String?
+  userAgent     String?
+  timestamp     DateTime @default(now())
+
+  // REQUERIMIENTO CRÍTICO: Hash encadenado para verificación de integridad
+  hashActual    String   @unique // hash(hashAnterior + datosEvento)
+  hashAnterior  String?  // Hash del registro anterior (para cadena)
+
+  @@index([timestamp])
+  @@index([usuarioId, timestamp])
+  @@index([entidad, entidadId])
+  @@map("bitacora")
+}
+
+// ============================================
+// ALERTAS Y NOTIFICACIONES
+// ============================================
+
+enum TipoAlerta {
+  VENCIMIENTO_PROXIMO
+  VENCIMIENTO_VENCIDO
+  STOCK_MINIMO
+  INFORME_NO_GENERADO
+  CORTE_PENDIENTE
+  EXCEPCION_PEPS
+}
+
+enum EstadoAlerta {
+  PENDIENTE
+  NOTIFICADA
+  RESUELTA
+  IGNORADA
+}
+
+model Alerta {
+  id            String       @id @default(cuid())
+  tipo          TipoAlerta
+  estado        EstadoAlerta @default(PENDIENTE)
+
+  titulo        String
+  mensaje       String       @db.Text
+
+  // Referencias
+  articuloId    String?
+  loteId        String?
+  informeId     String?
+
+  // Severidad
+  severidad     String       @default("MEDIA") // BAJA, MEDIA, ALTA, CRITICA
+
+  // Fechas
+  creadoEn      DateTime     @default(now())
+  notificadoEn  DateTime?
+  resueltoEn    DateTime?
+
+  @@index([estado, creadoEn])
+  @@index([tipo, estado])
+  @@map("alertas")
+}
+
+// ============================================
+// CONFIGURACIÓN DEL SISTEMA
+// ============================================
+
+model Configuracion {
+  id              String   @id @default(cuid())
+  clave           String   @unique
+  valor           String   @db.Text
+  descripcion     String?
+  tipo            String   @default("STRING") // STRING, NUMBER, BOOLEAN, JSON
+
+  creadoEn        DateTime @default(now())
+  actualizadoEn   DateTime @updatedAt
+
+  @@map("configuracion")
+}
