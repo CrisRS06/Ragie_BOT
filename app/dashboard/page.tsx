@@ -1,133 +1,68 @@
 /**
- * Dashboard Principal
+ * Dashboard Principal - Mejorado con navegación global
  * Vista general del sistema con métricas clave y accesos rápidos
  */
 
-import { Package, TrendingUp, AlertTriangle, FileText, ClipboardList, Users } from 'lucide-react';
+import { Package, TrendingUp, AlertTriangle, ClipboardList, FileText, Users } from 'lucide-react';
+import Link from 'next/link';
 
 export default function DashboardPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Alertas Críticas */}
+      <div className="mb-8">
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-md">
+          <div className="flex items-start">
+            <AlertTriangle className="h-5 w-5 text-yellow-400 mr-3 flex-shrink-0 mt-0.5" />
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Sistema de Inventario PEPS
-              </h1>
-              <p className="mt-1 text-sm text-gray-600">
-                Patronato Nacional de la Infancia - Costa Rica
+              <p className="text-sm font-medium text-yellow-800">
+                <strong>Atención:</strong> Es necesario generar el informe mensual de inventario.
+                Tienes hasta el día 3 del mes.
               </p>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                Usuario: <span className="font-medium">Administrador</span>
-              </span>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
-                Cerrar Sesión
-              </button>
-            </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Alertas Críticas */}
-        <div className="mb-8">
-          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-md">
-            <div className="flex items-center">
-              <AlertTriangle className="h-5 w-5 text-yellow-400 mr-3" />
-              <div>
-                <p className="text-sm font-medium text-yellow-800">
-                  <strong>Atención:</strong> Es necesario generar el informe mensual de inventario.
-                  Tienes hasta el día 3 del mes.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Métricas Principales */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <MetricCard
+          title="Artículos Activos"
+          value="145"
+          icon={<Package className="h-6 w-6 text-blue-600" />}
+          bgColor="bg-blue-100"
+        />
+        <MetricCard
+          title="Movimientos del Mes"
+          value="248"
+          icon={<TrendingUp className="h-6 w-6 text-green-600" />}
+          bgColor="bg-green-100"
+        />
+        <MetricCard
+          title="Próximos a Vencer"
+          value="12"
+          icon={<AlertTriangle className="h-6 w-6 text-red-600" />}
+          bgColor="bg-red-100"
+        />
+        <MetricCard
+          title="Cortes del Año"
+          value="8"
+          icon={<ClipboardList className="h-6 w-6 text-purple-600" />}
+          bgColor="bg-purple-100"
+        />
+      </div>
 
-        {/* Métricas Principales */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Total Artículos */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-blue-100 rounded-md p-3">
-                <Package className="h-6 w-6 text-blue-600" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Artículos Activos
-                  </dt>
-                  <dd className="text-2xl font-semibold text-gray-900">145</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-
-          {/* Movimientos del Mes */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-green-100 rounded-md p-3">
-                <TrendingUp className="h-6 w-6 text-green-600" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Movimientos del Mes
-                  </dt>
-                  <dd className="text-2xl font-semibold text-gray-900">248</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-
-          {/* Alertas de Vencimiento */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-red-100 rounded-md p-3">
-                <AlertTriangle className="h-6 w-6 text-red-600" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Próximos a Vencer
-                  </dt>
-                  <dd className="text-2xl font-semibold text-gray-900">12</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-
-          {/* Cortes Realizados */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-purple-100 rounded-md p-3">
-                <ClipboardList className="h-6 w-6 text-purple-600" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Cortes del Año
-                  </dt>
-                  <dd className="text-2xl font-semibold text-gray-900">8</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Accesos Rápidos */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      {/* Accesos Rápidos */}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Accesos Rápidos</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <QuickAccessCard
             title="Nueva Recepción"
             description="Registrar entrada de mercancía"
             icon={<Package className="h-8 w-8" />}
             href="/recepciones/nueva"
             color="blue"
+            available={true}
           />
           <QuickAccessCard
             title="Despacho PEPS"
@@ -135,6 +70,7 @@ export default function DashboardPage() {
             icon={<TrendingUp className="h-8 w-8" />}
             href="/despachos/nuevo"
             color="green"
+            available={false}
           />
           <QuickAccessCard
             title="Generar Corte"
@@ -142,6 +78,7 @@ export default function DashboardPage() {
             icon={<ClipboardList className="h-8 w-8" />}
             href="/cortes/nuevo"
             color="purple"
+            available={false}
           />
           <QuickAccessCard
             title="Informes"
@@ -149,49 +86,81 @@ export default function DashboardPage() {
             icon={<FileText className="h-8 w-8" />}
             href="/reportes"
             color="orange"
+            available={false}
           />
           <QuickAccessCard
-            title="Catálogo SIGAF"
-            description="Gestionar descripciones SIGAF"
-            icon={<ClipboardList className="h-8 w-8" />}
-            href="/articulos/sigaf"
+            title="Inventario"
+            description="Consultar existencias"
+            icon={<Package className="h-8 w-8" />}
+            href="/inventario"
             color="indigo"
+            available={false}
           />
           <QuickAccessCard
-            title="Usuarios"
-            description="Administrar usuarios y permisos"
+            title="Auditoría"
+            description="Bitácora y verificación"
             icon={<Users className="h-8 w-8" />}
-            href="/usuarios"
+            href="/auditoria"
             color="gray"
+            available={false}
           />
         </div>
+      </div>
 
-        {/* Últimos Movimientos */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Últimos Movimientos</h2>
-          </div>
-          <div className="p-6">
-            <div className="text-center text-gray-500 py-8">
-              <p>Los movimientos aparecerán aquí una vez que se registren operaciones.</p>
-              <p className="text-sm mt-2">Sistema listo para operar.</p>
-            </div>
-          </div>
+      {/* Últimos Movimientos */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-medium text-gray-900">Últimos Movimientos</h2>
         </div>
-      </main>
+        <div className="p-6">
+          <EmptyState
+            title="No hay movimientos recientes"
+            description="Los movimientos de inventario aparecerán aquí una vez que se registren operaciones."
+          />
+        </div>
+      </div>
 
       {/* Footer */}
-      <footer className="mt-12 bg-white border-t border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <p className="text-center text-sm text-gray-500">
-            Sistema de Inventario PEPS © 2025 - Patronato Nacional de la Infancia
-            <br />
-            <span className="text-xs">
-              Cumplimiento regulatorio completo | Versión 1.0.0
-            </span>
-          </p>
-        </div>
+      <footer className="mt-12 text-center">
+        <p className="text-sm text-gray-500">
+          Sistema de Inventario PEPS © 2025 - Patronato Nacional de la Infancia
+          <br />
+          <span className="text-xs">
+            Cumplimiento regulatorio completo | Versión 1.0.0
+          </span>
+        </p>
       </footer>
+    </div>
+  );
+}
+
+// ============================================
+// Componentes
+// ============================================
+
+interface MetricCardProps {
+  title: string;
+  value: string;
+  icon: React.ReactNode;
+  bgColor: string;
+}
+
+function MetricCard({ title, value, icon, bgColor }: MetricCardProps) {
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="flex items-center">
+        <div className={`flex-shrink-0 ${bgColor} rounded-md p-3`}>
+          {icon}
+        </div>
+        <div className="ml-5 w-0 flex-1">
+          <dl>
+            <dt className="text-sm font-medium text-gray-500 truncate">
+              {title}
+            </dt>
+            <dd className="text-2xl font-semibold text-gray-900">{value}</dd>
+          </dl>
+        </div>
+      </div>
     </div>
   );
 }
@@ -202,28 +171,72 @@ interface QuickAccessCardProps {
   icon: React.ReactNode;
   href: string;
   color: 'blue' | 'green' | 'purple' | 'orange' | 'indigo' | 'gray';
+  available: boolean;
 }
 
-function QuickAccessCard({ title, description, icon, href, color }: QuickAccessCardProps) {
+function QuickAccessCard({ title, description, icon, href, color, available }: QuickAccessCardProps) {
   const colorClasses = {
-    blue: 'bg-blue-100 text-blue-600 hover:bg-blue-200',
-    green: 'bg-green-100 text-green-600 hover:bg-green-200',
-    purple: 'bg-purple-100 text-purple-600 hover:bg-purple-200',
-    orange: 'bg-orange-100 text-orange-600 hover:bg-orange-200',
-    indigo: 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200',
-    gray: 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+    blue: 'bg-blue-100 text-blue-600',
+    green: 'bg-green-100 text-green-600',
+    purple: 'bg-purple-100 text-purple-600',
+    orange: 'bg-orange-100 text-orange-600',
+    indigo: 'bg-indigo-100 text-indigo-600',
+    gray: 'bg-gray-100 text-gray-600',
   };
 
+  if (!available) {
+    return (
+      <div className="bg-white rounded-lg shadow p-6 opacity-60 cursor-not-allowed relative">
+        <div className={`inline-flex p-3 rounded-md ${colorClasses[color]} opacity-50`}>
+          {icon}
+        </div>
+        <h3 className="mt-4 text-lg font-medium text-gray-900">{title}</h3>
+        <p className="mt-1 text-sm text-gray-500">{description}</p>
+        <div className="mt-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          Próximamente
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <a
+    <Link
       href={href}
-      className="block bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6"
+      className="block bg-white rounded-lg shadow hover:shadow-md transition-all p-6 group hover:scale-105 duration-200"
     >
-      <div className={`inline-flex p-3 rounded-md ${colorClasses[color]}`}>
+      <div className={`inline-flex p-3 rounded-md ${colorClasses[color]} group-hover:scale-110 transition-transform`}>
         {icon}
       </div>
-      <h3 className="mt-4 text-lg font-medium text-gray-900">{title}</h3>
+      <h3 className="mt-4 text-lg font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
+        {title}
+      </h3>
       <p className="mt-1 text-sm text-gray-500">{description}</p>
-    </a>
+      <div className="mt-3 inline-flex items-center text-sm font-medium text-blue-600 group-hover:text-blue-700">
+        Ir →
+      </div>
+    </Link>
+  );
+}
+
+function EmptyState({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="text-center py-12">
+      <svg
+        className="mx-auto h-12 w-12 text-gray-400"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        aria-hidden="true"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+        />
+      </svg>
+      <h3 className="mt-2 text-sm font-medium text-gray-900">{title}</h3>
+      <p className="mt-1 text-sm text-gray-500 max-w-md mx-auto">{description}</p>
+    </div>
   );
 }
