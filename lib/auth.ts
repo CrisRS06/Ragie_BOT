@@ -14,6 +14,16 @@ const JWT_SECRET = new TextEncoder().encode(
 export const COOKIE_NAME = 'auth-token';
 
 /**
+ * Usuario admin por defecto para cron jobs y operaciones del sistema
+ */
+export const ADMIN_USER = {
+  id: 'system',
+  email: 'system@pani.go.cr',
+  nombre: 'Sistema',
+  rol: 'ADMINISTRADOR_CONTRATISTA' as const,
+};
+
+/**
  * Roles disponibles en el sistema
  */
 export type RolUsuario =
