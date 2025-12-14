@@ -11,10 +11,10 @@ export default function NuevaRecepcionPage() {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header de página */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           Nueva Recepción de Mercancía
         </h1>
-        <p className="mt-1 text-sm text-gray-600">
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
           Registrar entrada de productos al inventario
         </p>
       </div>
@@ -33,11 +33,11 @@ export default function NuevaRecepcionPage() {
       </Card>
 
       {/* Instrucciones */}
-      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-blue-900 mb-2">
-          📋 Instrucciones
+      <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+        <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
+          Instrucciones
         </h3>
-        <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+        <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
           <li>Seleccione el artículo desde el catálogo</li>
           <li>La fecha de vencimiento debe ser futura</li>
           <li>El sistema creará automáticamente un nuevo lote con timestamp PEPS</li>

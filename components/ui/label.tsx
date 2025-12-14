@@ -1,5 +1,5 @@
 /**
- * Componente Label - MVP
+ * Componente Label - MVP con accesibilidad ARIA y contraste mejorado
  */
 
 import * as React from 'react';
@@ -15,13 +15,19 @@ const Label = React.forwardRef<HTMLLabelElement, LabelProps>(
     <label
       ref={ref}
       className={cn(
-        'text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
+        'text-sm font-medium leading-none text-gray-800 dark:text-gray-200',
+        'peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
         className
       )}
       {...props}
     >
       {children}
-      {required && <span className="text-red-600 ml-1">*</span>}
+      {required && (
+        <span className="text-red-600 dark:text-red-400 ml-1" aria-hidden="true">
+          *
+        </span>
+      )}
+      {required && <span className="sr-only">(campo requerido)</span>}
     </label>
   )
 );

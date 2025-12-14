@@ -84,6 +84,27 @@ model UnidadReceptora {
 }
 
 // ============================================
+// PROVEEDORES
+// ============================================
+
+model Proveedor {
+  id          String   @id @default(cuid())
+  codigo      String   @unique
+  nombre      String
+  ruc         String?  // Cédula jurídica
+  direccion   String?
+  telefono    String?
+  email       String?
+  contacto    String?
+  activo      Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("proveedores")
+}
+
+// ============================================
 // ARTÍCULOS Y CATÁLOGO SIGAF
 // ============================================
 

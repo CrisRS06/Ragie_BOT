@@ -1,23 +1,27 @@
 /**
- * Componente Card - MVP
+ * Componente Card - MVP con accesibilidad ARIA y contraste mejorado
  */
 
 import * as React from 'react';
 import { cn } from '@/lib/utils/cn';
 
-const Card = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      'rounded-lg border border-gray-200 bg-white text-gray-950 shadow-sm',
-      className
-    )}
-    {...props}
-  />
-));
+export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  as?: 'article' | 'section' | 'div';
+}
+
+const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ className, as: Component = 'div', ...props }, ref) => (
+    <Component
+      ref={ref}
+      className={cn(
+        'rounded-lg border border-gray-200 bg-white text-gray-900 shadow-sm',
+        'dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100',
+        className
+      )}
+      {...props}
+    />
+  )
+);
 Card.displayName = 'Card';
 
 const CardHeader = React.forwardRef<
@@ -32,19 +36,22 @@ const CardHeader = React.forwardRef<
 ));
 CardHeader.displayName = 'CardHeader';
 
-const CardTitle = React.forwardRef<
-  HTMLParagraphElement,
-  React.HTMLAttributes<HTMLHeadingElement>
->(({ className, ...props }, ref) => (
-  <h3
-    ref={ref}
-    className={cn(
-      'text-2xl font-semibold leading-none tracking-tight',
-      className
-    )}
-    {...props}
-  />
-));
+export interface CardTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {
+  as?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+}
+
+const CardTitle = React.forwardRef<HTMLHeadingElement, CardTitleProps>(
+  ({ className, as: Component = 'h3', ...props }, ref) => (
+    <Component
+      ref={ref}
+      className={cn(
+        'text-2xl font-semibold leading-none tracking-tight text-gray-900 dark:text-white',
+        className
+      )}
+      {...props}
+    />
+  )
+);
 CardTitle.displayName = 'CardTitle';
 
 const CardDescription = React.forwardRef<
@@ -53,7 +60,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn('text-sm text-gray-500', className)}
+    className={cn('text-sm text-gray-600 dark:text-gray-400', className)}
     {...props}
   />
 ));

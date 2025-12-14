@@ -1,5 +1,5 @@
 /**
- * Componente Button - MVP
+ * Componente Button - MVP con accesibilidad ARIA y contraste mejorado
  */
 
 import * as React from 'react';
@@ -21,15 +21,16 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       isLoading = false,
       disabled,
       children,
+      'aria-label': ariaLabel,
       ...props
     },
     ref
   ) => {
     const variants = {
-      default: 'bg-blue-600 text-white hover:bg-blue-700',
-      destructive: 'bg-red-600 text-white hover:bg-red-700',
-      outline: 'border border-gray-300 bg-white hover:bg-gray-50',
-      ghost: 'hover:bg-gray-100',
+      default: 'bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-600 dark:bg-blue-500 dark:hover:bg-blue-600',
+      destructive: 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600 dark:bg-red-500 dark:hover:bg-red-600',
+      outline: 'border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 focus-visible:ring-blue-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700',
+      ghost: 'text-gray-700 hover:bg-gray-100 focus-visible:ring-gray-500 dark:text-gray-300 dark:hover:bg-gray-800',
     };
 
     const sizes = {
@@ -38,18 +39,24 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       lg: 'h-12 px-6',
     };
 
+    const isDisabled = disabled || isLoading;
+
     return (
       <button
         className={cn(
           'inline-flex items-center justify-center rounded-md font-medium transition-colors',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+          'dark:focus-visible:ring-offset-gray-900',
           'disabled:pointer-events-none disabled:opacity-50',
           variants[variant],
           sizes[size],
           className
         )}
         ref={ref}
-        disabled={disabled || isLoading}
+        disabled={isDisabled}
+        aria-disabled={isDisabled}
+        aria-busy={isLoading}
+        aria-label={ariaLabel}
         {...props}
       >
         {isLoading && (
@@ -58,6 +65,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
+            aria-hidden="true"
           >
             <circle
               className="opacity-25"
@@ -74,6 +82,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             />
           </svg>
         )}
+        {isLoading && <span className="sr-only">Cargando...</span>}
         {children}
       </button>
     );

@@ -14,4 +14,4 @@ afterEach(() => {
 // Mock de variables de entorno para tests
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test_db';
 process.env.JWT_SECRET = 'test_secret';
-process.env.NODE_ENV = 'test';
+// NODE_ENV is already set by Vitest to 'test'

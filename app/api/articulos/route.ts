@@ -1,12 +1,29 @@
 /**
- * API: GET /api/articulos
- * Lista todos los artículos activos del sistema
+ * API: /api/articulos
+ * GET - Lista todos los artículos activos del sistema
+ * POST - Crear nuevo artículo
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getCurrentUserId } from '@/lib/auth';
+import { registrarBitacora } from '@/lib/services/bitacora.service';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
+
+// Schema de validación para crear artículo
+const createArticuloSchema = z.object({
+  sku: z.string().min(3, 'SKU debe tener al menos 3 caracteres').max(50),
+  nombre: z.string().min(3, 'Nombre debe tener al menos 3 caracteres').max(200),
+  descripcionSIGAF: z.string().min(10, 'Descripción SIGAF debe tener al menos 10 caracteres').max(500),
+  descripcion: z.string().max(500).optional().nullable(),
+  unidadMedida: z.enum(['UNIDAD', 'KG', 'LITRO', 'METRO', 'CAJA', 'PAQUETE', 'BOLSA', 'ROLLO', 'GALON', 'LIBRA']),
+  stockMinimo: z.number().min(0).optional().nullable(),
+  stockMaximo: z.number().min(0).optional().nullable(),
+  codigoSIGAF: z.string().max(50).optional().nullable(),
+  requiereVencimiento: z.boolean().optional(),
+});
 
 export async function GET() {
   try {
@@ -73,6 +90,95 @@ export async function GET() {
         error: 'Error al obtener artículos',
         message: error instanceof Error ? error.message : 'Error desconocido',
       },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST /api/articulos - Crear nuevo artículo
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+
+    // Validar datos
+    const validacion = createArticuloSchema.safeParse(body);
+    if (!validacion.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Datos inválidos',
+          errors: validacion.error.format(),
+        },
+        { status: 400 }
+      );
+    }
+
+    const data = validacion.data;
+    const usuarioId = getCurrentUserId();
+
+    // Verificar que el SKU no exista
+    const skuExistente = await prisma.articulo.findUnique({
+      where: { sku: data.sku },
+    });
+
+    if (skuExistente) {
+      return NextResponse.json(
+        { success: false, error: 'Ya existe un artículo con este SKU' },
+        { status: 400 }
+      );
+    }
+
+    // Validar que stockMaximo >= stockMinimo si ambos están definidos
+    if (
+      data.stockMinimo !== null &&
+      data.stockMinimo !== undefined &&
+      data.stockMaximo !== null &&
+      data.stockMaximo !== undefined &&
+      data.stockMaximo < data.stockMinimo
+    ) {
+      return NextResponse.json(
+        { success: false, error: 'Stock máximo no puede ser menor al stock mínimo' },
+        { status: 400 }
+      );
+    }
+
+    // Crear artículo
+    const articulo = await prisma.articulo.create({
+      data: {
+        sku: data.sku,
+        nombre: data.nombre,
+        descripcion: data.descripcion,
+        descripcionSIGAF: data.descripcionSIGAF,
+        codigoSIGAF: data.codigoSIGAF,
+        unidadMedida: data.unidadMedida,
+        stockMinimo: data.stockMinimo,
+        stockMaximo: data.stockMaximo,
+        requiereVencimiento: data.requiereVencimiento ?? true,
+        activo: true,
+      },
+    });
+
+    // Registrar en bitácora
+    await registrarBitacora({
+      usuarioId,
+      accion: 'CREAR_ARTICULO',
+      entidad: 'Articulo',
+      entidadId: articulo.id,
+      estadoAnterior: null,
+      estadoNuevo: articulo,
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Artículo creado exitosamente',
+      data: articulo,
+    });
+  } catch (error) {
+    console.error('Error al crear artículo:', error);
+    return NextResponse.json(
+      { success: false, error: 'Error al crear artículo' },
       { status: 500 }
     );
   }

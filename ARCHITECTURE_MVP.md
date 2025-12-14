@@ -1,25 +1,25 @@
 # 🗺️ Mapa de Arquitectura - Sistema PEPS MVP
 
-**Fecha**: 2025-11-06
-**Estado**: En Construcción MVP
+**Fecha**: 2025-12-13
+**Estado**: ✅ MVP Completo y Funcional
 
 ---
 
 ## 📊 Estado Actual
 
-### ✅ Completado
+### ✅ Completado (100%)
 - [x] Esquema de base de datos Prisma (completo)
-- [x] Servicios backend (bitácora, PEPS, cortes, informes)
+- [x] Servicios backend (bitácora, PEPS, cortes, informes, PDF)
 - [x] Seed de datos de prueba
 - [x] Utilidades (hash, cn)
-- [x] Dashboard UI estático
-
-### ❌ Faltante (Bloqueadores MVP)
-- [ ] **API Routes** - Sin endpoints implementados
-- [ ] **Páginas funcionales** - Solo dashboard estático
-- [ ] **Componentes UI** - Sin componentes reutilizables
-- [ ] **Tests** - Sin tests configurados
-- [ ] **Health check** - Sin endpoint de vida
+- [x] Dashboard UI dinámico con métricas reales
+- [x] **API Routes** - Todos los endpoints implementados
+- [x] **Páginas funcionales** - 10 páginas completas
+- [x] **Componentes UI** - Componentes reutilizables
+- [x] **Tests E2E** - Playwright configurado con tests para 5 Journeys
+- [x] **Health check** - Endpoint `/api/health`
+- [x] **Cron Jobs** - Automatización de informes, cortes y alertas
+- [x] **Auth Simplificada** - Usuario admin hardcodeado
 
 ---
 
@@ -27,7 +27,7 @@
 
 ### Journey 1: Recepción de Mercancía
 **Prioridad**: 🔴 CRÍTICA
-**Estado**: ❌ No implementado
+**Estado**: ✅ Implementado
 
 **Flujo**:
 1. Usuario navega a /recepciones/nueva
@@ -47,17 +47,17 @@
 - ✅ Muestra error si falla
 - ✅ Redirige a lista después de éxito
 
-**Endpoints Necesarios**:
+**Endpoints Implementados**:
 - `GET /api/articulos` - Listar artículos
 - `POST /api/recepciones` - Crear recepción
 
-**Estado Actual**: 🔴 **BLOQUEADO** - Sin API ni UI
+**Estado Actual**: ✅ **COMPLETO** - API + UI funcional
 
 ---
 
 ### Journey 2: Despacho PEPS
 **Prioridad**: 🔴 CRÍTICA
-**Estado**: ❌ No implementado
+**Estado**: ✅ Implementado
 
 **Flujo**:
 1. Usuario navega a /despachos/nuevo
@@ -79,18 +79,18 @@
 - ✅ Genera PDF/documento de entrega
 - ✅ Registra todos los movimientos
 
-**Endpoints Necesarios**:
+**Endpoints Implementados**:
 - `GET /api/articulos/:id/lotes-peps` - Obtener lotes en orden PEPS
 - `POST /api/despachos` - Ejecutar despacho PEPS
 - `GET /api/despachos/:id/documento` - Generar documento
 
-**Estado Actual**: 🔴 **BLOQUEADO** - Sin API ni UI
+**Estado Actual**: ✅ **COMPLETO** - API + UI funcional
 
 ---
 
 ### Journey 3: Generación de Corte Bajo Demanda
 **Prioridad**: 🟠 ALTA
-**Estado**: ❌ No implementado
+**Estado**: ✅ Implementado
 
 **Flujo**:
 1. Usuario navega a /cortes/nuevo
@@ -110,19 +110,19 @@
 - ✅ Permite descargar CSV inmediatamente
 - ✅ Muestra código de verificación
 
-**Endpoints Necesarios**:
+**Endpoints Implementados**:
 - `POST /api/cortes` - Crear corte
 - `GET /api/cortes/:id` - Ver corte
 - `GET /api/cortes/:id/csv` - Descargar CSV
 - `GET /api/cortes/:id/verificar` - Verificar integridad
 
-**Estado Actual**: 🔴 **BLOQUEADO** - Sin API ni UI
+**Estado Actual**: ✅ **COMPLETO** - API + UI funcional
 
 ---
 
 ### Journey 4: Consulta de Inventario con PEPS
 **Prioridad**: 🟠 ALTA
-**Estado**: ❌ No implementado
+**Estado**: ✅ Implementado
 
 **Flujo**:
 1. Usuario navega a /inventario
@@ -143,18 +143,18 @@
 - ✅ Permite buscar artículos
 - ✅ Muestra estados vacíos correctamente
 
-**Endpoints Necesarios**:
+**Endpoints Implementados**:
 - `GET /api/inventario` - Listar artículos con stock
 - `GET /api/inventario/:articuloId/lotes` - Ver lotes de un artículo
 - `GET /api/alertas/vencimientos` - Obtener alertas
 
-**Estado Actual**: 🔴 **BLOQUEADO** - Sin API ni UI
+**Estado Actual**: ✅ **COMPLETO** - API + UI funcional
 
 ---
 
 ### Journey 5: Verificación de Bitácora
 **Prioridad**: 🟡 MEDIA
-**Estado**: ❌ No implementado
+**Estado**: ✅ Implementado
 
 **Flujo**:
 1. Usuario (Auditor) navega a /auditoria
@@ -173,12 +173,12 @@
 - ✅ Exporta CSV con todos los campos
 - ✅ Muestra detalles de cada evento
 
-**Endpoints Necesarios**:
+**Endpoints Implementados**:
 - `GET /api/bitacora` - Listar eventos
 - `POST /api/bitacora/verificar` - Verificar integridad
 - `GET /api/bitacora/exportar` - Exportar CSV
 
-**Estado Actual**: 🔴 **BLOQUEADO** - Sin API ni UI
+**Estado Actual**: ✅ **COMPLETO** - API + UI funcional
 
 ---
 
@@ -189,25 +189,31 @@ Sistema PEPS
 │
 ├── Frontend (Next.js 15)
 │   ├── app/
-│   │   ├── dashboard/          ✅ Implementado (estático)
-│   │   ├── recepciones/        ❌ Falta
-│   │   ├── despachos/          ❌ Falta
-│   │   ├── inventario/         ❌ Falta
-│   │   ├── cortes/             ❌ Falta
-│   │   ├── auditoria/          ❌ Falta
-│   │   └── api/                ❌ Falta (CRÍTICO)
-│   │       ├── articulos/      ❌
-│   │       ├── recepciones/    ❌
-│   │       ├── despachos/      ❌
-│   │       ├── cortes/         ❌
-│   │       ├── inventario/     ❌
-│   │       ├── bitacora/       ❌
-│   │       └── health/         ❌ (Para smoke test)
+│   │   ├── dashboard/          ✅ Implementado (dinámico)
+│   │   ├── recepciones/        ✅ Implementado
+│   │   ├── despachos/          ✅ Implementado
+│   │   ├── inventario/         ✅ Implementado
+│   │   ├── cortes/             ✅ Implementado
+│   │   ├── auditoria/          ✅ Implementado
+│   │   ├── reportes/           ✅ Implementado
+│   │   └── api/                ✅ Todos los endpoints
+│   │       ├── articulos/      ✅
+│   │       ├── recepciones/    ✅
+│   │       ├── despachos/      ✅
+│   │       ├── cortes/         ✅
+│   │       ├── inventario/     ✅
+│   │       ├── bitacora/       ✅
+│   │       ├── informes/       ✅
+│   │       ├── dashboard/      ✅
+│   │       ├── cron/           ✅
+│   │       ├── alertas/        ✅
+│   │       └── health/         ✅
 │   │
-│   └── components/             ❌ Falta
-│       ├── ui/                 ❌ (Button, Input, Card, etc.)
-│       ├── forms/              ❌ (RecepcionForm, DespachoForm, etc.)
-│       └── tables/             ❌ (DataTable, etc.)
+│   └── components/             ✅ Implementados
+│       ├── ui/                 ✅ (Button, Input, Card, Select, etc.)
+│       ├── forms/              ✅ (RecepcionForm, DespachoForm, CorteForm)
+│       ├── layout/             ✅ (Navbar)
+│       └── tables/             ✅ (Tablas integradas en páginas)
 │
 ├── Backend Services ✅
 │   ├── bitacora.service.ts     ✅ Implementado
