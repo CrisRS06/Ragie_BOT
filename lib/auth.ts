@@ -1,20 +1,17 @@
 /**
- * Helper de Autenticación Simplificada
- *
- * NOTA: Esta es una implementación simplificada para el MVP.
- * En producción, se debe implementar autenticación real con JWT/sesiones.
+ * Sistema de Autenticación
  */
 
-/**
- * Usuario administrador hardcodeado para el MVP
- */
-export const ADMIN_USER = {
-  id: 'admin-001',
-  email: 'admin@pani.go.cr',
-  nombre: 'Administrador Sistema',
-  rol: 'ADMINISTRADOR_CONTRATISTA' as const,
-  activo: true,
-};
+import { SignJWT, jwtVerify } from 'jose';
+import { cookies } from 'next/headers';
+import { prisma } from './prisma';
+import bcrypt from 'bcryptjs';
+
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET || 'default-secret-change-in-production'
+);
+
+export const COOKIE_NAME = 'auth-token';
 
 /**
  * Roles disponibles en el sistema
@@ -33,37 +30,116 @@ export interface UsuarioAuth {
   email: string;
   nombre: string;
   rol: RolUsuario;
-  activo: boolean;
+  activo?: boolean;
 }
 
 /**
- * Obtiene el usuario actual (simplificado - siempre retorna admin)
- * En producción, esto leería de la sesión/JWT
+ * Crear token JWT
  */
-export function getCurrentUser(): UsuarioAuth {
-  return ADMIN_USER;
+export async function createToken(payload: UsuarioAuth): Promise<string> {
+  return new SignJWT({ ...payload })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setExpirationTime('7d')
+    .setIssuedAt()
+    .sign(JWT_SECRET);
 }
 
 /**
- * Obtiene el ID del usuario actual para operaciones de bitácora
+ * Verificar token JWT
  */
-export function getCurrentUserId(): string {
-  return ADMIN_USER.id;
+export async function verifyToken(token: string): Promise<UsuarioAuth | null> {
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload as unknown as UsuarioAuth;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Obtiene el usuario actual desde cookies (server-side)
+ */
+export async function getCurrentUser(): Promise<UsuarioAuth | null> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(COOKIE_NAME)?.value;
+
+    if (!token) return null;
+
+    return verifyToken(token);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Obtiene el ID del usuario actual
+ */
+export async function getCurrentUserId(): Promise<string | null> {
+  const user = await getCurrentUser();
+  return user?.id || null;
+}
+
+/**
+ * Login de usuario
+ */
+export async function loginUser(email: string, password: string) {
+  const usuario = await prisma.usuario.findUnique({
+    where: { email, activo: true },
+  });
+
+  if (!usuario) {
+    return { success: false, error: 'Credenciales inválidas' };
+  }
+
+  const passwordValid = await bcrypt.compare(password, usuario.passwordHash);
+
+  if (!passwordValid) {
+    return { success: false, error: 'Credenciales inválidas' };
+  }
+
+  // Actualizar último acceso
+  await prisma.usuario.update({
+    where: { id: usuario.id },
+    data: { ultimoAcceso: new Date() },
+  });
+
+  const userPayload: UsuarioAuth = {
+    id: usuario.id,
+    email: usuario.email,
+    nombre: usuario.nombre,
+    rol: usuario.rol as RolUsuario,
+  };
+
+  const token = await createToken(userPayload);
+
+  return {
+    success: true,
+    token,
+    user: userPayload,
+  };
+}
+
+/**
+ * Hash de contraseña
+ */
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 12);
 }
 
 /**
  * Verifica si el usuario tiene un rol específico
  */
-export function hasRole(requiredRole: RolUsuario): boolean {
-  const user = getCurrentUser();
+export function hasRole(user: UsuarioAuth | null, requiredRole: RolUsuario): boolean {
+  if (!user) return false;
   return user.rol === requiredRole;
 }
 
 /**
  * Verifica si el usuario tiene alguno de los roles especificados
  */
-export function hasAnyRole(roles: RolUsuario[]): boolean {
-  const user = getCurrentUser();
+export function hasAnyRole(user: UsuarioAuth | null, roles: RolUsuario[]): boolean {
+  if (!user) return false;
   return roles.includes(user.rol);
 }
 
@@ -114,25 +190,17 @@ export const PERMISOS_POR_ROL: Record<RolUsuario, string[]> = {
 /**
  * Verifica si el usuario tiene un permiso específico
  */
-export function hasPermission(permission: string): boolean {
-  const user = getCurrentUser();
+export function hasPermission(user: UsuarioAuth | null, permission: string): boolean {
+  if (!user) return false;
   const permisos = PERMISOS_POR_ROL[user.rol] || [];
   return permisos.includes(permission);
 }
 
 /**
- * Obtiene todos los permisos del usuario actual
- */
-export function getUserPermissions(): string[] {
-  const user = getCurrentUser();
-  return PERMISOS_POR_ROL[user.rol] || [];
-}
-
-/**
  * Información del usuario para mostrar en UI
  */
-export function getUserDisplayInfo(): { nombre: string; email: string; rolDisplay: string } {
-  const user = getCurrentUser();
+export function getUserDisplayInfo(user: UsuarioAuth | null): { nombre: string; email: string; rolDisplay: string } | null {
+  if (!user) return null;
 
   const rolDisplayMap: Record<RolUsuario, string> = {
     ADMINISTRADOR_CONTRATISTA: 'Administrador',
