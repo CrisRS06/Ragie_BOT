@@ -3,7 +3,19 @@ import { loginUser, COOKIE_NAME } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json();
+    // Step 1: Parse request body
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      console.error('Error parsing request body:', parseError);
+      return NextResponse.json(
+        { success: false, error: 'Error parsing request body', details: String(parseError) },
+        { status: 400 }
+      );
+    }
+
+    const { email, password } = body;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -12,7 +24,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await loginUser(email, password);
+    // Step 2: Attempt login
+    let result;
+    try {
+      result = await loginUser(email, password);
+    } catch (loginError) {
+      console.error('Error in loginUser:', loginError);
+      return NextResponse.json(
+        { success: false, error: 'Error during login', details: String(loginError) },
+        { status: 500 }
+      );
+    }
 
     if (!result.success) {
       return NextResponse.json(
@@ -38,9 +60,9 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error('Error en login:', error);
+    console.error('Error en login (outer):', error);
     return NextResponse.json(
-      { success: false, error: 'Error interno del servidor' },
+      { success: false, error: 'Error interno del servidor', details: String(error) },
       { status: 500 }
     );
   }
