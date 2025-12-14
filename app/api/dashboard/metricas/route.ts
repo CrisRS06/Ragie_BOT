@@ -139,36 +139,55 @@ export async function GET(request: NextRequest) {
       ? Math.round(((movimientosMes - movimientosMesAnterior) / movimientosMesAnterior) * 100)
       : 0;
 
+    // Contar entradas y salidas del mes
+    const [entradasMes, salidasMes] = await Promise.all([
+      prisma.movimiento.count({
+        where: {
+          timestamp: { gte: inicioMes, lte: finMes },
+          tipo: 'ENTRADA',
+          anulado: false,
+        },
+      }),
+      prisma.movimiento.count({
+        where: {
+          timestamp: { gte: inicioMes, lte: finMes },
+          tipo: 'SALIDA',
+          anulado: false,
+        },
+      }),
+    ]);
+
+    // Verificar si falta informe mensual (del 1 al 3 de cada mes)
+    const diaActual = hoy.getDate();
+    const informeMensualPendiente = diaActual >= 1 && diaActual <= 3;
+
     return NextResponse.json({
       success: true,
       metricas: {
-        articulos: {
-          total: totalArticulos,
-          conStock: articulosConStock,
-          sinStock: totalArticulos - articulosConStock,
-          stockBajo: articulosStockBajo,
+        totalArticulos,
+        articulosConStock,
+        articulosSinStock: totalArticulos - articulosConStock,
+        movimientosMes: {
+          entradas: entradasMes,
+          salidas: salidasMes,
+          total: movimientosMes,
         },
-        movimientos: {
-          mes: movimientosMes,
-          tendencia: tendenciaMovimientos,
+        alertas: {
+          lotesProximosVencer,
+          lotesVencidos,
+          articulosStockBajo,
         },
-        vencimientos: {
-          proximosAVencer: lotesProximosVencer,
-          vencidos: lotesVencidos,
-          totalAlertas: lotesProximosVencer + lotesVencidos,
-        },
-        cortes: {
-          anioActual: cortesAnio,
-        },
+        cortesAnio,
+        ultimosMovimientos: ultimosMovimientos.map((m) => ({
+          id: m.id,
+          tipo: m.tipo,
+          cantidad: m.cantidad,
+          fecha: m.timestamp.toISOString(),
+          articulo: `${m.articulo.sku} - ${m.articulo.nombre}`,
+          usuario: m.usuario?.nombre || 'Sistema',
+        })),
+        informeMensualPendiente,
       },
-      ultimosMovimientos: ultimosMovimientos.map((m) => ({
-        id: m.id,
-        tipo: m.tipo,
-        cantidad: m.cantidad,
-        timestamp: m.timestamp,
-        articulo: m.articulo,
-        usuario: m.usuario?.nombre || 'Sistema',
-      })),
       actualizadoEn: new Date().toISOString(),
     });
   } catch (error) {
