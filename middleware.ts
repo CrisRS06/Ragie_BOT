@@ -9,7 +9,7 @@ const JWT_SECRET = new TextEncoder().encode(
 const COOKIE_NAME = 'auth-token';
 
 // Rutas públicas que no requieren autenticación
-const publicRoutes = ['/login', '/api/auth/login', '/api/health'];
+const publicRoutes = ['/login', '/api/auth/login', '/api/health', '/api/seed'];
 
 // Rutas de API que no deben redirigir
 const apiRoutes = ['/api/'];
