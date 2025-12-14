@@ -83,7 +83,14 @@ export async function POST(request: NextRequest) {
     }
 
     const data = validacion.data;
-    const usuarioActualId = getCurrentUserId();
+    const usuarioActualId = await getCurrentUserId();
+
+    if (!usuarioActualId) {
+      return NextResponse.json(
+        { success: false, error: 'No autenticado' },
+        { status: 401 }
+      );
+    }
 
     // Verificar que el email no exista
     const emailExistente = await prisma.usuario.findUnique({

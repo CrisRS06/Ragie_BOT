@@ -125,7 +125,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const usuarioId = getCurrentUserId();
+    const usuarioId = await getCurrentUserId();
+
+    if (!usuarioId) {
+      return NextResponse.json(
+        { success: false, error: 'No autenticado' },
+        { status: 401 }
+      );
+    }
+
     const data = validacion.data;
 
     // Validar que stockMaximo >= stockMinimo si ambos están definidos
@@ -211,7 +219,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const usuarioId = getCurrentUserId();
+    const usuarioId = await getCurrentUserId();
+
+    if (!usuarioId) {
+      return NextResponse.json(
+        { success: false, error: 'No autenticado' },
+        { status: 401 }
+      );
+    }
 
     // Soft delete - solo desactivar (actualizadoEn se actualiza automáticamente)
     const articuloDesactivado = await prisma.articulo.update({

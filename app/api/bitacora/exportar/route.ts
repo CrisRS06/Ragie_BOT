@@ -12,7 +12,14 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const desde = searchParams.get('desde');
     const hasta = searchParams.get('hasta');
-    const usuarioId = getCurrentUserId();
+    const usuarioId = await getCurrentUserId();
+
+    if (!usuarioId) {
+      return NextResponse.json(
+        { success: false, error: 'No autenticado' },
+        { status: 401 }
+      );
+    }
 
     const registros = await exportarBitacora({
       desde: desde ? new Date(desde) : undefined,

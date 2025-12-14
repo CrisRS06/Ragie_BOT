@@ -116,7 +116,14 @@ export async function POST(request: NextRequest) {
     }
 
     const data = validacion.data;
-    const usuarioId = getCurrentUserId();
+    const usuarioId = await getCurrentUserId();
+
+    if (!usuarioId) {
+      return NextResponse.json(
+        { success: false, error: 'No autenticado' },
+        { status: 401 }
+      );
+    }
 
     // Verificar que el SKU no exista
     const skuExistente = await prisma.articulo.findUnique({

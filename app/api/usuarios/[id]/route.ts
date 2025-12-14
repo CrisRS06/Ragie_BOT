@@ -103,7 +103,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const usuarioActualId = getCurrentUserId();
+    const usuarioActualId = await getCurrentUserId();
+
+    if (!usuarioActualId) {
+      return NextResponse.json(
+        { success: false, error: 'No autenticado' },
+        { status: 401 }
+      );
+    }
+
     const data = validacion.data;
 
     // Preparar datos de actualización
@@ -168,7 +176,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const usuarioActualId = getCurrentUserId();
+    const usuarioActualId = await getCurrentUserId();
+
+    if (!usuarioActualId) {
+      return NextResponse.json(
+        { success: false, error: 'No autenticado' },
+        { status: 401 }
+      );
+    }
 
     // No permitir desactivarse a sí mismo
     if (id === usuarioActualId) {

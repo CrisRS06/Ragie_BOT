@@ -41,7 +41,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const { motivo } = validacion.data;
-    const usuarioId = getCurrentUserId();
+    const usuarioId = await getCurrentUserId();
+
+    if (!usuarioId) {
+      return NextResponse.json(
+        { success: false, error: 'No autenticado' },
+        { status: 401 }
+      );
+    }
 
     // Buscar el despacho por ID del movimiento
     const movimientos = await prisma.movimiento.findMany({

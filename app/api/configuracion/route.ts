@@ -139,7 +139,14 @@ const updateConfigSchema = z.object({
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const usuarioId = getCurrentUserId();
+    const usuarioId = await getCurrentUserId();
+
+    if (!usuarioId) {
+      return NextResponse.json(
+        { success: false, error: 'No autenticado' },
+        { status: 401 }
+      );
+    }
 
     // Validar datos
     const validacion = updateConfigSchema.safeParse(body);

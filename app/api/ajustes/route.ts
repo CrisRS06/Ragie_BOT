@@ -41,7 +41,14 @@ export async function POST(request: NextRequest) {
     }
 
     const { articuloId, loteId, tipoAjuste, cantidad, motivo } = validacion.data;
-    const usuarioId = getCurrentUserId();
+    const usuarioId = await getCurrentUserId();
+
+    if (!usuarioId) {
+      return NextResponse.json(
+        { success: false, error: 'No autenticado' },
+        { status: 401 }
+      );
+    }
 
     // Verificar que el lote existe y pertenece al artículo
     const lote = await prisma.lote.findFirst({

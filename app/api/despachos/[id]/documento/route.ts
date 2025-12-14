@@ -57,7 +57,14 @@ export async function GET(
       );
     }
 
-    const usuario = getCurrentUser();
+    const usuario = await getCurrentUser();
+
+    if (!usuario) {
+      return NextResponse.json(
+        { error: 'No autenticado' },
+        { status: 401 }
+      );
+    }
 
     // Generar PDF
     const { buffer, firma } = await generarPDFDespacho({

@@ -91,7 +91,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const usuarioId = getCurrentUserId();
+    const usuarioId = await getCurrentUserId();
+
+    if (!usuarioId) {
+      return NextResponse.json(
+        { success: false, error: 'No autenticado' },
+        { status: 401 }
+      );
+    }
+
     const data = validacion.data;
 
     // Actualizar proveedor
@@ -146,7 +154,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const usuarioId = getCurrentUserId();
+    const usuarioId = await getCurrentUserId();
+
+    if (!usuarioId) {
+      return NextResponse.json(
+        { success: false, error: 'No autenticado' },
+        { status: 401 }
+      );
+    }
 
     // Soft delete
     const proveedorDesactivado = await prisma.proveedor.update({

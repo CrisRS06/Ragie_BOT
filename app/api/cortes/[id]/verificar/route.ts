@@ -14,7 +14,14 @@ export async function GET(
 ) {
   try {
     const { id: corteId } = await params;
-    const usuarioId = getCurrentUserId();
+    const usuarioId = await getCurrentUserId();
+
+    if (!usuarioId) {
+      return NextResponse.json(
+        { success: false, error: 'No autenticado' },
+        { status: 401 }
+      );
+    }
 
     const resultado = await verificarIntegridadCorte(corteId);
 

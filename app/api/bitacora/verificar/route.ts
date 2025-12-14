@@ -11,7 +11,14 @@ import { getCurrentUserId } from '@/lib/auth';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
-    const usuarioId = getCurrentUserId();
+    const usuarioId = await getCurrentUserId();
+
+    if (!usuarioId) {
+      return NextResponse.json(
+        { success: false, error: 'No autenticado' },
+        { status: 401 }
+      );
+    }
 
     const resultado = await verificarIntegridad({
       desde: body.desde ? new Date(body.desde) : undefined,

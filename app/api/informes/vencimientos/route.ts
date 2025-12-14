@@ -12,7 +12,14 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const diasAnticipacion = parseInt(searchParams.get('dias') || '30');
     const incluirVencidos = searchParams.get('incluirVencidos') !== 'false';
-    const usuarioId = getCurrentUserId();
+    const usuarioId = await getCurrentUserId();
+
+    if (!usuarioId) {
+      return NextResponse.json(
+        { success: false, error: 'No autenticado' },
+        { status: 401 }
+      );
+    }
 
     const resultado = await generarReporteVencimientos({
       diasAnticipacion,
