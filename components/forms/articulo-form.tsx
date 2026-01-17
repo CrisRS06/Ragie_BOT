@@ -18,6 +18,11 @@ interface Articulo {
   descripcion?: string | null;
   descripcionSIGAF: string;
   codigoSIGAF?: string | null;
+  // FASE 1: Campos adicionales PANI
+  codigoBarras?: string | null;
+  marca?: string | null;
+  ivaPercent?: number;
+  observaciones?: string | null;
   unidadMedida: string;
   stockMinimo?: number | null;
   stockMaximo?: number | null;
@@ -55,6 +60,11 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
     descripcion: '',
     descripcionSIGAF: '',
     codigoSIGAF: '',
+    // FASE 1: Campos adicionales PANI
+    codigoBarras: '',
+    marca: '',
+    ivaPercent: '0.13',
+    observaciones: '',
     unidadMedida: 'UNIDAD',
     stockMinimo: '',
     stockMaximo: '',
@@ -73,6 +83,11 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
         descripcion: articulo.descripcion || '',
         descripcionSIGAF: articulo.descripcionSIGAF || '',
         codigoSIGAF: articulo.codigoSIGAF || '',
+        // FASE 1: Campos adicionales PANI
+        codigoBarras: articulo.codigoBarras || '',
+        marca: articulo.marca || '',
+        ivaPercent: articulo.ivaPercent?.toString() || '0.13',
+        observaciones: articulo.observaciones || '',
         unidadMedida: articulo.unidadMedida || 'UNIDAD',
         stockMinimo: articulo.stockMinimo?.toString() || '',
         stockMaximo: articulo.stockMaximo?.toString() || '',
@@ -156,6 +171,11 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
         descripcion: formData.descripcion?.trim() || null,
         descripcionSIGAF: formData.descripcionSIGAF.trim(),
         codigoSIGAF: formData.codigoSIGAF?.trim() || null,
+        // FASE 1: Campos adicionales PANI
+        codigoBarras: formData.codigoBarras?.trim() || null,
+        marca: formData.marca?.trim() || null,
+        ivaPercent: formData.ivaPercent ? parseFloat(formData.ivaPercent) : 0.13,
+        observaciones: formData.observaciones?.trim() || null,
         unidadMedida: formData.unidadMedida,
         stockMinimo: formData.stockMinimo ? parseFloat(formData.stockMinimo) : null,
         stockMaximo: formData.stockMaximo ? parseFloat(formData.stockMaximo) : null,
@@ -345,6 +365,81 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
               disabled={loading}
             />
           </div>
+        </div>
+      </div>
+
+      {/* Sección: Información Adicional PANI */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Información Adicional</h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Código de Barras */}
+          <div>
+            <Label htmlFor="codigoBarras">
+              Código de Barras
+            </Label>
+            <Input
+              id="codigoBarras"
+              name="codigoBarras"
+              type="text"
+              placeholder="Ej: 7501234567890"
+              value={formData.codigoBarras}
+              onChange={handleChange}
+              disabled={loading}
+            />
+            <p className="mt-1 text-xs text-gray-500">Para escaneo de productos</p>
+          </div>
+
+          {/* Marca */}
+          <div>
+            <Label htmlFor="marca">
+              Marca
+            </Label>
+            <Input
+              id="marca"
+              name="marca"
+              type="text"
+              placeholder="Ej: Dos Pinos"
+              value={formData.marca}
+              onChange={handleChange}
+              disabled={loading}
+            />
+          </div>
+
+          {/* IVA */}
+          <div>
+            <Label htmlFor="ivaPercent">
+              Porcentaje IVA
+            </Label>
+            <Select
+              id="ivaPercent"
+              name="ivaPercent"
+              value={formData.ivaPercent}
+              onChange={handleChange}
+              disabled={loading}
+            >
+              <option value="0.13">13% (Gravado)</option>
+              <option value="0">0% (Exento)</option>
+            </Select>
+            <p className="mt-1 text-xs text-gray-500">Para valorización de inventario</p>
+          </div>
+        </div>
+
+        {/* Observaciones del artículo */}
+        <div className="mt-4">
+          <Label htmlFor="observaciones">
+            Observaciones
+          </Label>
+          <textarea
+            id="observaciones"
+            name="observaciones"
+            rows={2}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+            placeholder="Notas adicionales sobre el artículo..."
+            value={formData.observaciones}
+            onChange={handleChange}
+            disabled={loading}
+          />
         </div>
       </div>
 

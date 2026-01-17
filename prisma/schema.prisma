@@ -74,6 +74,9 @@ model UnidadReceptora {
   responsable String?
   activo      Boolean      @default(true)
 
+  // FASE 8: Observaciones adicionales
+  observaciones String?    @db.Text  // Notas adicionales de la unidad receptora
+
   creadoEn    DateTime     @default(now())
   actualizadoEn DateTime   @updatedAt
 
@@ -118,6 +121,12 @@ model Articulo {
   descripcionSIGAF  String    // Texto exacto obligatorio según catálogo SIGAF
   codigoSIGAF       String?   // Código interno del SIGAF si aplica
 
+  // FASE 1: Campos adicionales PANI
+  codigoBarras      String?   @unique  // Para escaneo de código de barras
+  marca             String?            // Marca del producto
+  ivaPercent        Float     @default(0.13) // 0.00 para exento o 0.13 para gravado
+  observaciones     String?   @db.Text  // Notas adicionales del artículo
+
   // Unidad de medida
   unidadMedida      String    // ej: "unidades", "kg", "litros", etc.
 
@@ -138,6 +147,7 @@ model Articulo {
   movimientos       Movimiento[]
 
   @@index([descripcionSIGAF])
+  @@index([codigoBarras])
   @@map("articulos")
 }
 
@@ -165,6 +175,11 @@ model Lote {
   proveedor           String?
   costoUnitario       Float?
   ubicacion           String?   // Ubicación física en bodega
+
+  // FASE 3: Valorización de Entradas
+  subtotalSinIva      Float?    // Cantidad × costoUnitario
+  montoIva            Float?    // subtotalSinIva × ivaPercent del artículo
+  totalConIva         Float?    // subtotalSinIva + montoIva
 
   // Estado
   activo              Boolean   @default(true)
@@ -218,6 +233,15 @@ model Movimiento {
   motivo              String?         // Requerido para ajustes y anulaciones
   documentoReferencia String?         // Número de factura, orden de compra, etc.
   documentosAdjuntos  String[]        // URLs de documentos escaneados
+
+  // FASE 8: Observaciones adicionales
+  observaciones       String?   @db.Text  // Notas adicionales del movimiento
+
+  // FASE 4: Valorización de Salidas PEPS
+  costoUnitarioPEPS   Float?    // Costo unitario del lote al momento de la salida
+  subtotalSinIva      Float?    // cantidad × costoUnitarioPEPS
+  montoIva            Float?    // subtotalSinIva × ivaPercent
+  totalConIva         Float?    // subtotalSinIva + montoIva
 
   // Usuario responsable
   usuarioId           String

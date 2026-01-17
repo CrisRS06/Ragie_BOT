@@ -116,22 +116,46 @@ export default function ReportesPage() {
           </CardContent>
         </Card>
 
-        {/* Reporte Quincenal */}
+        {/* Kardex por Producto - FASE 6 */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Reporte Quincenal</CardTitle>
+            <CardTitle className="text-lg">Kardex por Producto</CardTitle>
             <CardDescription>
-              Detalle de movimientos con filtros por fecha, artículo y receptor
+              Historial de movimientos con saldos acumulativos PEPS
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               <p className="text-xs text-gray-500">
-                Exportable en PDF y CSV. Incluye todos los movimientos del período seleccionado.
+                Detalle de entradas, salidas y saldos por artículo con valorización.
               </p>
-              <Button variant="outline" className="w-full" disabled>
-                Próximamente
-              </Button>
+              <Link href="/reportes/kardex">
+                <Button variant="outline" className="w-full">
+                  Generar Kardex
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Valor de Bodega - FASE 5 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Valor de Bodega (INS)</CardTitle>
+            <CardDescription>
+              Valorización total del inventario para seguros
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <p className="text-xs text-gray-500">
+                Reporte de valor total con y sin IVA. Desglose por artículo y lote.
+              </p>
+              <Link href="/reportes/valor-bodega">
+                <Button variant="outline" className="w-full">
+                  Ver Valor de Bodega
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>

@@ -23,6 +23,11 @@ const createArticuloSchema = z.object({
   stockMaximo: z.number().min(0).optional().nullable(),
   codigoSIGAF: z.string().max(50).optional().nullable(),
   requiereVencimiento: z.boolean().optional(),
+  // FASE 1: Campos adicionales PANI
+  codigoBarras: z.string().max(50).optional().nullable(),
+  marca: z.string().max(100).optional().nullable(),
+  ivaPercent: z.number().min(0).max(1).optional().default(0.13),
+  observaciones: z.string().max(2000).optional().nullable(),
 });
 
 export async function GET() {
@@ -39,6 +44,11 @@ export async function GET() {
         unidadMedida: true,
         stockMinimo: true,
         stockMaximo: true,
+        // FASE 1: Campos adicionales PANI
+        codigoBarras: true,
+        marca: true,
+        ivaPercent: true,
+        observaciones: true,
         _count: {
           select: {
             lotes: {
@@ -164,6 +174,11 @@ export async function POST(request: NextRequest) {
         stockMaximo: data.stockMaximo,
         requiereVencimiento: data.requiereVencimiento ?? true,
         activo: true,
+        // FASE 1: Campos adicionales PANI
+        codigoBarras: data.codigoBarras,
+        marca: data.marca,
+        ivaPercent: data.ivaPercent ?? 0.13,
+        observaciones: data.observaciones,
       },
     });
 

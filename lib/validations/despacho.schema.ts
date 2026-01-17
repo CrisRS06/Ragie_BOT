@@ -13,6 +13,7 @@ export const createDespachoSchema = z.object({
   receptor: z.string().min(3, 'El nombre del receptor es obligatorio (mínimo 3 caracteres)'),
   cedulaReceptor: z.string().optional(),
   unidadReceptoraId: z.string().optional(),
+  documentoReferencia: z.string().optional(), // Número de factura, orden, etc.
   observaciones: z.string().optional(),
   // Opcional: permitir especificar lotes manualmente (para excepciones autorizadas)
   lotesEspecificos: z

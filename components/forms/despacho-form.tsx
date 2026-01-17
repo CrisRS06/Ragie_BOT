@@ -48,6 +48,16 @@ interface LoteConsumido {
   fechaVencimiento: string;
 }
 
+// FASE 2: Interface para Unidades Receptoras (Albergues)
+interface UnidadReceptora {
+  id: string;
+  codigo: string;
+  nombre: string;
+  direccion: string | null;
+  telefono: string | null;
+  responsable: string | null;
+}
+
 export function DespachoForm() {
   // Estado del formulario
   const [articulos, setArticulos] = useState<Articulo[]>([]);
@@ -61,6 +71,10 @@ export function DespachoForm() {
     lotesConsumidos: LoteConsumido[];
     cantidadTotal: number;
   } | null>(null);
+
+  // FASE 2: Estado para Unidades Receptoras (Albergues)
+  const [unidadesReceptoras, setUnidadesReceptoras] = useState<UnidadReceptora[]>([]);
+  const [loadingUnidades, setLoadingUnidades] = useState(true);
 
   // Lotes PEPS del artículo seleccionado
   const [lotesPEPS, setLotesPEPS] = useState<LotePEPS[]>([]);
@@ -80,9 +94,10 @@ export function DespachoForm() {
   // Errores de validación por campo
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  // Cargar artículos al montar
+  // Cargar artículos y unidades receptoras al montar
   useEffect(() => {
     fetchArticulos();
+    fetchUnidadesReceptoras();
   }, []);
 
   // Cargar lotes cuando cambia el artículo
@@ -125,6 +140,25 @@ export function DespachoForm() {
       console.error(err);
     } finally {
       setLoadingArticulos(false);
+    }
+  };
+
+  // FASE 2: Fetch Unidades Receptoras (Albergues)
+  const fetchUnidadesReceptoras = async () => {
+    try {
+      setLoadingUnidades(true);
+      const response = await fetch('/api/unidades-receptoras');
+      const data = await response.json();
+
+      if (data.success) {
+        setUnidadesReceptoras(data.data);
+      } else {
+        console.error('Error al cargar unidades receptoras:', data.error);
+      }
+    } catch (err) {
+      console.error('Error de conexión al cargar unidades receptoras:', err);
+    } finally {
+      setLoadingUnidades(false);
     }
   };
 
@@ -172,6 +206,11 @@ export function DespachoForm() {
       errors.cantidad = 'La cantidad debe ser mayor a 0';
     } else if (parseFloat(formData.cantidad) > stockTotal) {
       errors.cantidad = `Stock insuficiente. Disponible: ${stockTotal}`;
+    }
+
+    // FASE 2: Validar unidad receptora obligatoria
+    if (!formData.unidadReceptoraId) {
+      errors.unidadReceptoraId = 'Seleccione el albergue/unidad receptora de destino';
     }
 
     if (!formData.receptor || formData.receptor.length < 3) {
@@ -498,6 +537,54 @@ export function DespachoForm() {
           disabled={loading}
         />
       </div>
+
+      {/* FASE 2: Selector de Unidad Receptora (Albergue) */}
+      <div>
+        <Label htmlFor="unidadReceptoraId" required>
+          Albergue / Unidad Receptora
+        </Label>
+        <Select
+          id="unidadReceptoraId"
+          name="unidadReceptoraId"
+          value={formData.unidadReceptoraId}
+          onChange={handleChange}
+          disabled={loadingUnidades || loading}
+          error={fieldErrors.unidadReceptoraId}
+        >
+          <option value="">
+            {loadingUnidades ? 'Cargando albergues...' : 'Seleccione el albergue de destino'}
+          </option>
+          {unidadesReceptoras.map((unidad) => (
+            <option key={unidad.id} value={unidad.id}>
+              {unidad.codigo} - {unidad.nombre}
+            </option>
+          ))}
+        </Select>
+      </div>
+
+      {/* Info del albergue seleccionado */}
+      {formData.unidadReceptoraId && (
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+          {(() => {
+            const unidad = unidadesReceptoras.find((u) => u.id === formData.unidadReceptoraId);
+            if (!unidad) return null;
+            return (
+              <>
+                <p className="text-sm font-medium text-blue-900">{unidad.nombre}</p>
+                {unidad.direccion && (
+                  <p className="text-sm text-blue-800">Dirección: {unidad.direccion}</p>
+                )}
+                {unidad.responsable && (
+                  <p className="text-sm text-blue-700">Responsable: {unidad.responsable}</p>
+                )}
+                {unidad.telefono && (
+                  <p className="text-xs text-blue-600">Tel: {unidad.telefono}</p>
+                )}
+              </>
+            );
+          })()}
+        </div>
+      )}
 
       {/* Observaciones */}
       <div>

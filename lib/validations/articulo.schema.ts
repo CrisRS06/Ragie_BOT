@@ -48,6 +48,16 @@ export const createArticuloSchema = z.object({
       'La descripción SIGAF solo puede contener mayúsculas, números, espacios y puntuación básica'
     ),
   codigoSIGAF: z.string().optional(),
+  // FASE 1: Campos adicionales PANI
+  codigoBarras: z.string().max(50, 'El código de barras no puede exceder 50 caracteres').optional().nullable(),
+  marca: z.string().max(100, 'La marca no puede exceder 100 caracteres').optional().nullable(),
+  ivaPercent: z
+    .number()
+    .min(0, 'El porcentaje de IVA no puede ser negativo')
+    .max(1, 'El porcentaje de IVA debe ser entre 0 y 1 (ej: 0.13 para 13%)')
+    .optional()
+    .default(0.13),
+  observaciones: z.string().max(2000, 'Las observaciones no pueden exceder 2000 caracteres').optional().nullable(),
   unidadMedida: UnidadMedidaEnum,
   stockMinimo: z.number().min(0, 'El stock mínimo no puede ser negativo').optional().default(0),
   stockMaximo: z.number().min(0, 'El stock máximo no puede ser negativo').optional(),
@@ -76,6 +86,11 @@ export const articuloResponseSchema = z.object({
   nombre: z.string(),
   descripcionSIGAF: z.string(),
   codigoSIGAF: z.string().nullable(),
+  // FASE 1: Campos adicionales PANI
+  codigoBarras: z.string().nullable(),
+  marca: z.string().nullable(),
+  ivaPercent: z.number(),
+  observaciones: z.string().nullable(),
   unidadMedida: z.string(),
   stockMinimo: z.number(),
   stockMaximo: z.number().nullable(),

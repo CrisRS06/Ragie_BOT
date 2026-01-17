@@ -92,6 +92,7 @@ export async function validarStockDisponible(
 
 /**
  * Ejecuta una salida PEPS (despacho)
+ * FASE 4: Incluye valorización automática basada en costos PEPS
  */
 export async function ejecutarSalidaPEPS(params: {
   articuloId: string;
@@ -100,6 +101,7 @@ export async function ejecutarSalidaPEPS(params: {
   receptorNombre?: string;
   receptorCedula?: string;
   documentoReferencia?: string;
+  observaciones?: string;
   usuarioId: string;
   ip?: string;
   userAgent?: string;
@@ -112,31 +114,69 @@ export async function ejecutarSalidaPEPS(params: {
     throw new Error(validacion.mensaje);
   }
 
-  // Obtener lotes en orden PEPS
-  const lotes = await obtenerLotesPEPS(params.articuloId);
+  // Obtener lotes en orden PEPS (incluyendo costos para valorización)
+  const lotesConCosto = await prisma.lote.findMany({
+    where: {
+      articuloId: params.articuloId,
+      activo: true,
+      agotado: false,
+      cantidadDisponible: { gt: 0 },
+    },
+    orderBy: [
+      { fechaIngresoTs: 'asc' },
+    ],
+    select: {
+      id: true,
+      cantidadDisponible: true,
+      fechaIngresoTs: true,
+      fechaVencimiento: true,
+      numeroLote: true,
+      ubicacion: true,
+      costoUnitario: true, // FASE 4: Necesario para valorización
+    },
+  });
 
   // Calcular consumo
-  const consumos = calcularConsumoPEPS(lotes, params.cantidad);
+  const consumos = calcularConsumoPEPS(lotesConCosto, params.cantidad);
 
   if (consumos.length === 0) {
     throw new Error('No se pudo calcular el consumo PEPS');
   }
 
-  // Obtener información del artículo
+  // Obtener información del artículo (incluyendo IVA)
   const articulo = await prisma.articulo.findUnique({
     where: { id: params.articuloId },
-    select: { unidadMedida: true, nombre: true, sku: true },
+    select: { unidadMedida: true, nombre: true, sku: true, ivaPercent: true },
   });
 
   if (!articulo) {
     throw new Error('Artículo no encontrado');
   }
 
+  // FASE 4: Variables para valorización total
+  let valorTotalSinIva = 0;
+  let valorTotalIva = 0;
+  let valorTotalConIva = 0;
+
   // Ejecutar transacción para garantizar atomicidad
   const movimientos = await prisma.$transaction(async (tx) => {
     const movimientosCreados = [];
 
     for (const consumo of consumos) {
+      // Obtener costo del lote para valorización
+      const lote = lotesConCosto.find(l => l.id === consumo.loteId);
+      const costoUnitarioPEPS = lote?.costoUnitario || 0;
+
+      // FASE 4: Calcular valorización de esta salida
+      const subtotalSinIva = consumo.cantidad * costoUnitarioPEPS;
+      const montoIva = subtotalSinIva * (articulo.ivaPercent || 0);
+      const totalConIva = subtotalSinIva + montoIva;
+
+      // Acumular totales
+      valorTotalSinIva += subtotalSinIva;
+      valorTotalIva += montoIva;
+      valorTotalConIva += totalConIva;
+
       // Actualizar cantidad del lote
       const loteActualizado = await tx.lote.update({
         where: { id: consumo.loteId },
@@ -153,7 +193,7 @@ export async function ejecutarSalidaPEPS(params: {
         });
       }
 
-      // Crear movimiento de salida
+      // Crear movimiento de salida con valorización
       const movimiento = await tx.movimiento.create({
         data: {
           tipo: 'SALIDA',
@@ -165,15 +205,21 @@ export async function ejecutarSalidaPEPS(params: {
           receptorNombre: params.receptorNombre,
           receptorCedula: params.receptorCedula,
           documentoReferencia: params.documentoReferencia,
+          observaciones: params.observaciones,
           usuarioId: params.usuarioId,
           ip: params.ip,
           userAgent: params.userAgent,
+          // FASE 4: Valorización de la salida
+          costoUnitarioPEPS,
+          subtotalSinIva: subtotalSinIva > 0 ? subtotalSinIva : null,
+          montoIva: montoIva > 0 ? montoIva : null,
+          totalConIva: totalConIva > 0 ? totalConIva : null,
         },
       });
 
       movimientosCreados.push(movimiento);
 
-      // Registrar en bitácora
+      // Registrar en bitácora con valorización
       await registrarBitacora({
         usuarioId: params.usuarioId,
         accion: 'SALIDA_PEPS',
@@ -184,6 +230,11 @@ export async function ejecutarSalidaPEPS(params: {
           articulo: articulo.nombre,
           loteId: consumo.loteId,
           cantidad: consumo.cantidad,
+          // FASE 4: Incluir valorización
+          costoUnitarioPEPS,
+          subtotalSinIva,
+          montoIva,
+          totalConIva,
         },
         ip: params.ip,
         userAgent: params.userAgent,
@@ -198,11 +249,19 @@ export async function ejecutarSalidaPEPS(params: {
     movimientos,
     totalSalida: params.cantidad,
     lotesAfectados: consumos.length,
+    // FASE 4: Devolver valorización total del despacho
+    valorizacion: {
+      subtotalSinIva: valorTotalSinIva,
+      montoIva: valorTotalIva,
+      totalConIva: valorTotalConIva,
+      ivaPercent: articulo.ivaPercent,
+    },
   };
 }
 
 /**
  * Registra una entrada de inventario (recepción)
+ * FASE 3: Incluye valorización automática
  */
 export async function ejecutarEntrada(params: {
   articuloId: string;
@@ -217,19 +276,30 @@ export async function ejecutarEntrada(params: {
   ip?: string;
   userAgent?: string;
 }) {
-  // Obtener información del artículo
+  // Obtener información del artículo (incluyendo IVA para valorización)
   const articulo = await prisma.articulo.findUnique({
     where: { id: params.articuloId },
-    select: { unidadMedida: true, nombre: true, sku: true },
+    select: { unidadMedida: true, nombre: true, sku: true, ivaPercent: true },
   });
 
   if (!articulo) {
     throw new Error('Artículo no encontrado');
   }
 
+  // FASE 3: Calcular valorización
+  let subtotalSinIva: number | null = null;
+  let montoIva: number | null = null;
+  let totalConIva: number | null = null;
+
+  if (params.costoUnitario && params.costoUnitario > 0) {
+    subtotalSinIva = params.cantidad * params.costoUnitario;
+    montoIva = subtotalSinIva * (articulo.ivaPercent || 0);
+    totalConIva = subtotalSinIva + montoIva;
+  }
+
   // Ejecutar transacción
   const resultado = await prisma.$transaction(async (tx) => {
-    // Crear nuevo lote
+    // Crear nuevo lote con valorización
     const lote = await tx.lote.create({
       data: {
         articuloId: params.articuloId,
@@ -240,6 +310,10 @@ export async function ejecutarEntrada(params: {
         proveedor: params.proveedor,
         costoUnitario: params.costoUnitario,
         ubicacion: params.ubicacion,
+        // FASE 3: Valorización
+        subtotalSinIva,
+        montoIva,
+        totalConIva,
       },
     });
 
@@ -269,6 +343,11 @@ export async function ejecutarEntrada(params: {
         cantidad: params.cantidad,
         loteNumero: params.numeroLote,
         fechaVencimiento: params.fechaVencimiento,
+        // FASE 3: Incluir valorización en bitácora
+        costoUnitario: params.costoUnitario,
+        subtotalSinIva,
+        montoIva,
+        totalConIva,
       },
       ip: params.ip,
       userAgent: params.userAgent,
@@ -281,6 +360,13 @@ export async function ejecutarEntrada(params: {
     success: true,
     lote: resultado.lote,
     movimiento: resultado.movimiento,
+    // FASE 3: Devolver valorización
+    valorizacion: {
+      subtotalSinIva,
+      montoIva,
+      totalConIva,
+      ivaPercent: articulo.ivaPercent,
+    },
   };
 }
 
