@@ -40,7 +40,7 @@ yarn-error.log*
 next-env.d.ts
 
 # prisma
-/prisma/migrations
+# Note: migrations ARE tracked - required for Railway deployment
 
 # storage
 /storage

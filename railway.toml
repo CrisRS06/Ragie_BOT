@@ -1,10 +1,12 @@
 [build]
-builder = "railpack"
-buildCommand = "npm ci && npx prisma generate && npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-preDeployCommand = "npx prisma db push"
-startCommand = "node .next/standalone/server.js"
+# Startup script: waits for DB, runs migrations, then starts app
+startCommand = "sh scripts/start.sh"
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 5
-
+restartPolicyMaxRetries = 3
+# Health check verifica DB connection - dar tiempo suficiente para retry loop
+healthcheckPath = "/api/health"
+healthcheckTimeout = 180
