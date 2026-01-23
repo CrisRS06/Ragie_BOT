@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, Package, Calendar, Search, RefreshCw, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Package, Calendar, Search, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -120,12 +120,20 @@ export default function RecepcionesPage() {
               Registro de entradas de mercancía al inventario
             </p>
           </div>
-          <Link href="/recepciones/nueva">
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Nueva Recepción
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/recepciones/nueva-multi">
+              <Button variant="outline">
+                <Layers className="w-4 h-4 mr-2" />
+                Multi-Producto
+              </Button>
+            </Link>
+            <Link href="/recepciones/nueva">
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Nueva Recepción
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Filtros */}

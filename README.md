@@ -2,12 +2,12 @@
 
 ## 📋 Descripción
 
-Sistema Web de Inventario PEPS (Primeras Entradas, Primeras Salidas / FIFO) desarrollado para el Patronato Nacional de la Infancia (PANI) de Costa Rica, diseñado para cumplir escrupulosamente con todos los requisitos regulatorios del contrato público.
+Sistema Web de Inventario PEPS (Primeras Entradas, Primeras Salidas / FIFO) desarrollado para gestión de servicios de bodegaje, diseñado para cumplir escrupulosamente con todos los requisitos regulatorios del contrato público.
 
 ### Características Principales
 
 ✅ **Cumplimiento Regulatorio Completo**
-- ✓ Inventario mensual automático (primeros 3 días del mes)
+- ✓ Inventario mensual bajo demanda
 - ✓ Reportes quincenales de movimientos
 - ✓ Cortes de existencias mensuales y bajo demanda
 - ✓ Control de vencimientos con alertas FEFO
@@ -54,9 +54,8 @@ Sistema Web de Inventario PEPS (Primeras Entradas, Primeras Salidas / FIFO) desa
 - **zod** - Validación de esquemas
 - **pdfkit** - Generación de PDFs
 - **qrcode** - Códigos QR para etiquetas
-- **node-cron** - Tareas programadas
 - **bcryptjs** - Hashing de contraseñas
-- **jsonwebtoken** - Autenticación JWT
+- **jose** - Autenticación JWT
 
 ### Testing
 - **Vitest** - Tests unitarios e integración
@@ -101,7 +100,7 @@ Editar `.env` con tus credenciales:
 ```env
 DATABASE_URL="postgresql://usuario:password@localhost:5432/inventario_peps?schema=public"
 JWT_SECRET="tu_secreto_jwt_seguro"
-FISCALIZADOR_EMAIL="fiscalizador@pani.go.cr"
+FISCALIZADOR_EMAIL="fiscalizador@bodegaje.example.com"
 ```
 
 4. **Configurar la base de datos**
@@ -132,7 +131,7 @@ La aplicación estará disponible en `http://localhost:3000`
 ### Entidades Principales
 
 #### Usuario
-- Roles: Administrador Contratista, Operador Bodega, Fiscalizador PANI, Auditor
+- Roles: Administrador Contratista, Operador Bodega, Fiscalizador Externo, Auditor
 - Autenticación con 2FA opcional
 - Control de sesiones
 
@@ -198,9 +197,11 @@ La aplicación estará disponible en `http://localhost:3000`
 
 ### 3. Cortes de Existencias
 
-#### Corte Mensual Automático
-- Se genera automáticamente los primeros 3 días del mes
-- Envía alerta si no se ha generado
+#### Corte Mensual
+1. Ir a **Cortes** > **Nuevo Corte**
+2. Seleccionar tipo "Mensual"
+3. Confirmar
+4. Sistema genera snapshot con hash
 
 #### Corte Bajo Demanda
 1. Ir a **Cortes** > **Nuevo Corte**
@@ -216,7 +217,7 @@ La aplicación estará disponible en `http://localhost:3000`
 ### 4. Informes
 
 #### Informe Mensual de Inventario
-- **Se genera automáticamente** en los primeros 3 días del mes
+- Se genera bajo demanda desde **Reportes** > **Mensual**
 - Incluye:
   - Entradas y salidas del período
   - Saldo inicial y final por artículo/lote
@@ -294,27 +295,6 @@ La aplicación estará disponible en `http://localhost:3000`
 
 ---
 
-## 📅 Tareas Programadas (Cron Jobs)
-
-El sistema ejecuta automáticamente:
-
-### Diarias
-- **00:00 hrs**: Verificar alertas de vencimiento
-- **01:00 hrs**: Limpiar sesiones expiradas
-
-### Primeros 3 días del mes
-- **08:00 hrs**: Verificar si es necesario generar informe mensual
-- **08:30 hrs**: Generar informe mensual si no existe
-- **09:00 hrs**: Enviar informe al fiscalizador
-
-### Primer día del mes
-- **10:00 hrs**: Generar corte mensual automático
-
-### Días 1 y 16 de cada mes
-- **09:00 hrs**: Notificar generación de reporte quincenal
-
----
-
 ## 🔐 Seguridad
 
 ### Autenticación
@@ -326,7 +306,7 @@ El sistema ejecuta automáticamente:
 ### Autorización (RBAC)
 - **Administrador Contratista**: Acceso completo
 - **Operador Bodega**: Recepciones, despachos, transferencias, ajustes
-- **Fiscalizador PANI**: Solo lectura (reportes, cortes, auditoría)
+- **Fiscalizador Externo**: Solo lectura (reportes, cortes, auditoría)
 - **Auditor**: Acceso a bitácoras y verificaciones
 
 ### Row Level Security (RLS)
@@ -468,11 +448,10 @@ DATABASE_URL="postgresql://..."
 JWT_SECRET="<generar con openssl rand -hex 32>"
 NEXTAUTH_SECRET="<generar con openssl rand -hex 32>"
 NEXTAUTH_URL="https://inventario-peps.pani.go.cr"
-FISCALIZADOR_EMAIL="fiscalizador@pani.go.cr"
+FISCALIZADOR_EMAIL="fiscalizador@bodegaje.example.com"
 SMTP_HOST="smtp.example.com"
-SMTP_USER="notificaciones@pani.go.cr"
+SMTP_USER="notificaciones@bodegaje.example.com"
 SMTP_PASSWORD="..."
-ENABLE_CRON_JOBS="true"
 ```
 
 ### Checklist de Salida a Producción
@@ -484,7 +463,6 @@ ENABLE_CRON_JOBS="true"
 - [ ] Datos maestros importados (artículos, unidades receptoras)
 - [ ] Catálogo SIGAF importado
 - [ ] Backups automáticos configurados
-- [ ] Cron jobs habilitados
 - [ ] Email configurado (SMTP)
 - [ ] SSL/TLS habilitado
 - [ ] Firewall configurado
@@ -529,11 +507,10 @@ Ver [Runbook de Restauración](./docs/runbooks/restauracion-backup.md)
 
 ## 🐛 Troubleshooting
 
-### El informe mensual no se genera automáticamente
+### Generar informe mensual
 
-1. Verificar que `ENABLE_CRON_JOBS=true` en `.env`
-2. Revisar logs del cron job
-3. Ejecutar manualmente: **Reportes** > **Mensual** > **Generar**
+Los informes se generan bajo demanda:
+1. Ir a **Reportes** > **Mensual** > **Generar**
 
 ### Error en despacho PEPS
 
@@ -572,8 +549,8 @@ Este es un sistema para contrato público. Los cambios deben:
 
 ## 📄 Licencia
 
-Propiedad del Patronato Nacional de la Infancia (PANI) - Costa Rica.
-Uso restringido según términos del contrato público.
+Sistema de gestión de inventario PEPS para servicios de bodegaje.
+Uso restringido según términos del contrato.
 
 ---
 
@@ -581,7 +558,7 @@ Uso restringido según términos del contrato público.
 
 Para soporte técnico o consultas:
 
-- **Email**: soporte-inventario@pani.go.cr
+- **Email**: soporte-inventario@bodegaje.example.com
 - **Tel**: +506 xxxx-xxxx
 - **Horario**: Lunes a Viernes, 8:00 - 17:00 hrs
 
@@ -602,9 +579,9 @@ Se incluyen recursos de capacitación:
 Para imprimir y seguir:
 
 ### Primera Semana
-- [ ] Día 1-3: Verificar generación de informe mensual
+- [ ] Día 1-3: Generar informe mensual
 - [ ] Día 1-3: Enviar informe a fiscalizador
-- [ ] Día 1: Verificar corte mensual automático
+- [ ] Día 1: Generar corte mensual
 - [ ] Revisar alertas de vencimiento
 
 ### Segunda Semana
@@ -660,4 +637,4 @@ Accede desde: **Configuración** > **Métricas**
 ---
 
 **Sistema de Inventario PEPS v1.0.0**
-*Noviembre 2025 - Patronato Nacional de la Infancia, Costa Rica*
+*Noviembre 2025 - Sistema de Bodegaje*

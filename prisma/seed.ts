@@ -39,7 +39,7 @@ async function main() {
 
   const adminUser = await prisma.usuario.create({
     data: {
-      email: 'admin@pani.go.cr',
+      email: 'admin@bodegaje.example.com',
       nombre: 'Carlos Rodríguez',
       passwordHash,
       rol: 'ADMINISTRADOR_CONTRATISTA',
@@ -49,7 +49,7 @@ async function main() {
 
   const operadorUser = await prisma.usuario.create({
     data: {
-      email: 'operador@pani.go.cr',
+      email: 'operador@bodegaje.example.com',
       nombre: 'María González',
       passwordHash,
       rol: 'OPERADOR_BODEGA',
@@ -59,17 +59,17 @@ async function main() {
 
   const fiscalizadorUser = await prisma.usuario.create({
     data: {
-      email: 'fiscalizador@pani.go.cr',
+      email: 'fiscalizador@bodegaje.example.com',
       nombre: 'Juan Pérez',
       passwordHash,
-      rol: 'FISCALIZADOR_PANI',
+      rol: 'FISCALIZADOR_EXTERNO',
       activo: true,
     },
   });
 
   const auditorUser = await prisma.usuario.create({
     data: {
-      email: 'auditor@pani.go.cr',
+      email: 'auditor@bodegaje.example.com',
       nombre: 'Ana Martínez',
       passwordHash,
       rol: 'AUDITOR',
@@ -517,7 +517,7 @@ async function main() {
     prisma.configuracion.create({
       data: {
         clave: 'EMAIL_FISCALIZADOR',
-        valor: 'fiscalizador@pani.go.cr',
+        valor: 'fiscalizador@bodegaje.example.com',
         descripcion: 'Email del fiscalizador para envío de informes',
         tipo: 'STRING',
       },
@@ -558,16 +558,16 @@ async function main() {
   console.log('Credenciales de acceso:');
   console.log('─'.repeat(50));
   console.log('  Administrador:');
-  console.log('    Email: admin@pani.go.cr');
+  console.log('    Email: admin@bodegaje.example.com');
   console.log('    Password: Password123!');
   console.log('\n  Operador:');
-  console.log('    Email: operador@pani.go.cr');
+  console.log('    Email: operador@bodegaje.example.com');
   console.log('    Password: Password123!');
   console.log('\n  Fiscalizador:');
-  console.log('    Email: fiscalizador@pani.go.cr');
+  console.log('    Email: fiscalizador@bodegaje.example.com');
   console.log('    Password: Password123!');
   console.log('\n  Auditor:');
-  console.log('    Email: auditor@pani.go.cr');
+  console.log('    Email: auditor@bodegaje.example.com');
   console.log('    Password: Password123!');
   console.log('═'.repeat(50));
 }

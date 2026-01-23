@@ -1,19 +1,73 @@
+# ============================================
+# Docker Ignore - Sistema de Inventario PEPS
+# ============================================
+
+# Dependencies
 node_modules
-npm-debug.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
 .next
+out
+build
+dist
+
+# Environment files (SECURITY: never include in image)
+.env
+.env.*
+.env*.local
+!.env.example
+
+# Development files
 .git
 .gitignore
-.env*.local
-.env
-README.md
-docs
-*.md
 .vscode
 .idea
+
+# Docker files (avoid recursive copy)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Fly.io
+fly.toml
+
+# Testing
 coverage
-test-results
-playwright-report
+.nyc_output
 *.test.ts
+*.test.tsx
 *.spec.ts
+*.spec.tsx
 __tests__
 __mocks__
+tests
+playwright-report
+test-results
+
+# Documentation
+*.md
+docs/
+
+# Misc
+.DS_Store
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+
+# Kubernetes (if exists)
+kubernetes/
+
+# Storage (runtime data, not build)
+storage/
+
+# IDE
+.editorconfig
+.prettierrc*
+.eslintrc*
+eslint.config.*
+tsconfig.tsbuildinfo

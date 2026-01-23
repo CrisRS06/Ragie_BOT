@@ -94,15 +94,21 @@ export async function getCurrentUserId(): Promise<string | null> {
  * Login de usuario
  */
 export async function loginUser(email: string, password: string) {
+  console.log('loginUser: Finding user by email');
+
   const usuario = await prisma.usuario.findUnique({
     where: { email },
   });
+
+  console.log('loginUser: User found:', !!usuario);
 
   if (!usuario || !usuario.activo) {
     return { success: false, error: 'Credenciales inválidas' };
   }
 
+  console.log('loginUser: Comparing password');
   const passwordValid = await bcrypt.compare(password, usuario.passwordHash);
+  console.log('loginUser: Password valid:', passwordValid);
 
   if (!passwordValid) {
     return { success: false, error: 'Credenciales inválidas' };

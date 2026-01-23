@@ -18,7 +18,7 @@ const createUsuarioSchema = z.object({
   email: z.string().email('Email inválido'),
   nombre: z.string().min(3, 'Nombre debe tener al menos 3 caracteres').max(100),
   password: z.string().min(8, 'Contraseña debe tener al menos 8 caracteres'),
-  rol: z.enum(['ADMINISTRADOR_CONTRATISTA', 'OPERADOR_BODEGA', 'FISCALIZADOR_PANI', 'AUDITOR']),
+  rol: z.enum(['ADMINISTRADOR_CONTRATISTA', 'OPERADOR_BODEGA', 'FISCALIZADOR_EXTERNO', 'AUDITOR']),
 });
 
 // Función simple para hash de contraseña (en producción usar bcrypt)

@@ -552,7 +552,7 @@ Para verificar el cumplimiento de cualquier requisito:
 4. Verificar la documentación técnica adicional
 
 Para asistencia:
-- **Email**: cumplimiento@pani.go.cr
+- **Email**: cumplimiento@bodegaje.example.com
 - **Tel**: +506 xxxx-xxxx
 
 ---

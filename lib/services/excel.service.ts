@@ -9,7 +9,7 @@ import { prisma } from '@/lib/prisma';
 /**
  * Genera reporte de inventario en Excel
  */
-export async function generarExcelInventario(): Promise<Buffer> {
+export async function generarExcelInventario(): Promise<ArrayBuffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Sistema PEPS';
   workbook.created = new Date();
@@ -83,13 +83,13 @@ export async function generarExcelInventario(): Promise<Buffer> {
   });
   sheet.getRow(lastRow + 2).font = { bold: true };
 
-  return await workbook.xlsx.writeBuffer() as Buffer;
+  return await workbook.xlsx.writeBuffer();
 }
 
 /**
  * Genera reporte de valor de bodega en Excel
  */
-export async function generarExcelValorBodega(): Promise<Buffer> {
+export async function generarExcelValorBodega(): Promise<ArrayBuffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Sistema PEPS';
   workbook.created = new Date();
@@ -191,7 +191,7 @@ export async function generarExcelValorBodega(): Promise<Buffer> {
     fgColor: { argb: 'FFCCFFCC' },
   };
 
-  return await workbook.xlsx.writeBuffer() as Buffer;
+  return await workbook.xlsx.writeBuffer();
 }
 
 /**
@@ -201,7 +201,7 @@ export async function generarExcelKardex(
   articuloId: string,
   fechaDesde?: string,
   fechaHasta?: string
-): Promise<Buffer> {
+): Promise<ArrayBuffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Sistema PEPS';
   workbook.created = new Date();
@@ -343,7 +343,7 @@ export async function generarExcelKardex(
     sheet.getColumn(col).numFmt = '"₡"#,##0.00';
   });
 
-  return await workbook.xlsx.writeBuffer() as Buffer;
+  return await workbook.xlsx.writeBuffer();
 }
 
 /**
@@ -352,7 +352,7 @@ export async function generarExcelKardex(
 export async function generarExcelEntregasPorAlbergue(
   fechaDesde?: string,
   fechaHasta?: string
-): Promise<Buffer> {
+): Promise<ArrayBuffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Sistema PEPS';
   workbook.created = new Date();
@@ -425,5 +425,5 @@ export async function generarExcelEntregasPorAlbergue(
   // Formatear columna de valor
   sheet.getColumn('I').numFmt = '"₡"#,##0.00';
 
-  return await workbook.xlsx.writeBuffer() as Buffer;
+  return await workbook.xlsx.writeBuffer();
 }

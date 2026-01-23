@@ -37,7 +37,7 @@ open http://localhost:3000
 ```
 
 **Credenciales por defecto:**
-- Email: `admin@pani.go.cr`
+- Email: `admin@bodegaje.example.com`
 - Password: `Password123!`
 
 ---
@@ -88,7 +88,7 @@ open http://localhost:3000
 ```
 
 **Credenciales por defecto:**
-- Email: `admin@pani.go.cr`
+- Email: `admin@bodegaje.example.com`
 - Password: `Password123!`
 
 ---
@@ -246,7 +246,7 @@ npm run db:seed
 
 - **Documentación**: Ver `README.md`
 - **Issues**: GitHub Issues
-- **Email**: soporte@pani.go.cr
+- **Email**: soporte@bodegaje.example.com
 
 ---
 
@@ -269,4 +269,4 @@ El Sistema de Inventario PEPS está corriendo y listo para usar.
 ---
 
 **Sistema de Inventario PEPS v1.0.0**
-*Noviembre 2025 - PANI Costa Rica*
+*Noviembre 2025 - Sistema de Bodegaje*

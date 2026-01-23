@@ -10,7 +10,8 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { Plus, Search, Edit, Trash2, Package, AlertCircle } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, AlertCircle, Upload } from 'lucide-react';
+import { ImportArticulosModal } from '@/components/articulos/ImportArticulosModal';
 
 interface Articulo {
   id: string;
@@ -32,6 +33,7 @@ export default function AdminArticulosPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   useEffect(() => {
     fetchArticulos();
@@ -110,12 +112,18 @@ export default function AdminArticulosPage() {
               Gestione el catálogo de artículos del sistema
             </p>
           </div>
-          <Link href="/admin/articulos/nuevo">
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Artículo
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setImportModalOpen(true)}>
+              <Upload className="w-4 h-4 mr-2" />
+              Importar
             </Button>
-          </Link>
+            <Link href="/admin/articulos/nuevo">
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Nuevo Artículo
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Error */}
@@ -299,6 +307,13 @@ export default function AdminArticulosPage() {
             </table>
           </div>
         )}
+
+        {/* Modal de Importación */}
+        <ImportArticulosModal
+          open={importModalOpen}
+          onClose={() => setImportModalOpen(false)}
+          onSuccess={() => fetchArticulos()}
+        />
       </div>
     </div>
   );

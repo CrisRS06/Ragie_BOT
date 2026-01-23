@@ -74,7 +74,7 @@ export default function LoginPage() {
               Sistema PEPS
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Inventario PANI Costa Rica
+              Sistema de Gestión de Bodegaje
             </p>
           </div>
 
@@ -101,7 +101,7 @@ export default function LoginPage() {
                 required
                 autoComplete="email"
                 className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
-                placeholder="usuario@pani.go.cr"
+                placeholder="usuario@bodegaje.example.com"
               />
             </div>
 
@@ -148,7 +148,7 @@ export default function LoginPage() {
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Sistema de Control de Inventario PEPS
               <br />
-              Patronato Nacional de la Infancia
+              Servicios de Bodegaje para PANI
             </p>
           </div>
         </div>
@@ -158,7 +158,7 @@ export default function LoginPage() {
           <p className="text-xs text-gray-600 dark:text-gray-400 text-center">
             <strong>Credenciales de prueba:</strong>
             <br />
-            admin@pani.go.cr / Password123!
+            admin@bodegaje.example.com / Password123!
           </p>
         </div>
       </div>

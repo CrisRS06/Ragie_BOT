@@ -41,9 +41,9 @@ DB_PASSWORD=generate_secure_password_here
 JWT_SECRET=generate_with_openssl_rand_hex_32
 NEXTAUTH_SECRET=generate_with_openssl_rand_hex_32
 NEXTAUTH_URL=https://inventario.pani.go.cr
-FISCALIZADOR_EMAIL=fiscalizador@pani.go.cr
+FISCALIZADOR_EMAIL=fiscalizador@bodegaje.example.com
 SMTP_HOST=smtp.example.com
-SMTP_USER=notificaciones@pani.go.cr
+SMTP_USER=notificaciones@bodegaje.example.com
 SMTP_PASSWORD=smtp_password_here
 ENABLE_CRON_JOBS=true
 ```
@@ -439,7 +439,7 @@ npx prisma migrate deploy
 ## 📞 Soporte
 
 Para asistencia técnica:
-- Email: soporte-inventario@pani.go.cr
+- Email: soporte-inventario@bodegaje.example.com
 - Tel: +506 xxxx-xxxx
 - Documentación: Ver `/docs`
 

@@ -17,7 +17,7 @@ import { Card } from '@/components/ui/card';
 const ROLES = [
   { value: 'ADMINISTRADOR_CONTRATISTA', label: 'Administrador Contratista' },
   { value: 'OPERADOR_BODEGA', label: 'Operador de Bodega' },
-  { value: 'FISCALIZADOR_PANI', label: 'Fiscalizador PANI' },
+  { value: 'FISCALIZADOR_EXTERNO', label: 'Fiscalizador Externo' },
   { value: 'AUDITOR', label: 'Auditor' },
 ];
 

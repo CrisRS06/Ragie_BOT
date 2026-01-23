@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 // Schema de validación para actualizar
 const updateUsuarioSchema = z.object({
   nombre: z.string().min(3).max(100).optional(),
-  rol: z.enum(['ADMINISTRADOR_CONTRATISTA', 'OPERADOR_BODEGA', 'FISCALIZADOR_PANI', 'AUDITOR']).optional(),
+  rol: z.enum(['ADMINISTRADOR_CONTRATISTA', 'OPERADOR_BODEGA', 'FISCALIZADOR_EXTERNO', 'AUDITOR']).optional(),
   password: z.string().min(8).optional(),
 });
 

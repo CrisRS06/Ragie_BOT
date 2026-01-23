@@ -3,7 +3,18 @@ import { loginUser, COOKIE_NAME } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      console.error('Error parsing request body:', parseError);
+      return NextResponse.json(
+        { success: false, error: 'JSON inválido en el body' },
+        { status: 400 }
+      );
+    }
+
+    const { email, password } = body;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -12,7 +23,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('Attempting login for:', email);
+
     const result = await loginUser(email, password);
+
+    console.log('Login result success:', result.success);
 
     if (!result.success) {
       return NextResponse.json(

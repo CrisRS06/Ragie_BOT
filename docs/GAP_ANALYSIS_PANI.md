@@ -390,7 +390,7 @@ La tabla y CRUD están completos, pero **el formulario de despacho no permite se
 | Usuarios ilimitados | ✅ Sí | Sin límite técnico |
 | Rol Administrador | ✅ Sí | `ADMINISTRADOR_CONTRATISTA` |
 | Rol Recepción/Despacho | ✅ Sí | `OPERADOR_BODEGA` |
-| Rol Consulta (PANI) | ✅ Sí | `FISCALIZADOR_PANI` |
+| Rol Consulta (PANI) | ✅ Sí | `FISCALIZADOR_EXTERNO` |
 | Rol Auditor | ✅ Sí | `AUDITOR` |
 | Bitácora | ✅ Sí | Hash encadenado inmutable |
 | Acceso web | ✅ Sí | Next.js en la nube |
@@ -411,7 +411,7 @@ OPERADOR_BODEGA: [
   'inventario.ver', 'cortes.ver'
 ]
 
-FISCALIZADOR_PANI: [
+FISCALIZADOR_EXTERNO: [
   'articulos.ver', 'inventario.ver', 'cortes.ver',
   'informes.ver', 'informes.descargar', 'bitacora.ver'
 ]
