@@ -18,7 +18,7 @@ export const COOKIE_NAME = 'auth-token';
  */
 export const ADMIN_USER = {
   id: 'system',
-  email: 'system@pani.go.cr',
+  email: 'system@bodegaje.example.com',
   nombre: 'Sistema',
   rol: 'ADMINISTRADOR_CONTRATISTA' as const,
 };
@@ -29,7 +29,7 @@ export const ADMIN_USER = {
 export type RolUsuario =
   | 'ADMINISTRADOR_CONTRATISTA'
   | 'OPERADOR_BODEGA'
-  | 'FISCALIZADOR_PANI'
+  | 'FISCALIZADOR_EXTERNO'
   | 'AUDITOR';
 
 /**
@@ -95,10 +95,10 @@ export async function getCurrentUserId(): Promise<string | null> {
  */
 export async function loginUser(email: string, password: string) {
   const usuario = await prisma.usuario.findUnique({
-    where: { email, activo: true },
+    where: { email },
   });
 
-  if (!usuario) {
+  if (!usuario || !usuario.activo) {
     return { success: false, error: 'Credenciales inválidas' };
   }
 
@@ -177,7 +177,7 @@ export const PERMISOS_POR_ROL: Record<RolUsuario, string[]> = {
     'inventario.ver',
     'cortes.ver',
   ],
-  FISCALIZADOR_PANI: [
+  FISCALIZADOR_EXTERNO: [
     'articulos.ver',
     'inventario.ver',
     'cortes.ver',
@@ -215,7 +215,7 @@ export function getUserDisplayInfo(user: UsuarioAuth | null): { nombre: string; 
   const rolDisplayMap: Record<RolUsuario, string> = {
     ADMINISTRADOR_CONTRATISTA: 'Administrador',
     OPERADOR_BODEGA: 'Operador de Bodega',
-    FISCALIZADOR_PANI: 'Fiscalizador PANI',
+    FISCALIZADOR_EXTERNO: 'Fiscalizador Externo',
     AUDITOR: 'Auditor',
   };
 
