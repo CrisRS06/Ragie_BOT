@@ -1,33 +1,29 @@
 /**
  * API: POST /api/seed
- * Crea el usuario admin por defecto si no existe
+ * Crea o actualiza el usuario admin por defecto
  */
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '@/lib/auth';
+
+const ADMIN_EMAIL = 'admin@bodegaje.example.com';
+const ADMIN_PASSWORD = 'Admin2024Secure';
 
 export async function POST() {
   try {
-    // Verificar si ya existe un usuario admin
-    const adminExists = await prisma.usuario.findFirst({
-      where: { rol: 'ADMINISTRADOR_CONTRATISTA' },
-    });
+    // Generar hash con la misma función que usa login
+    const passwordHash = await hashPassword(ADMIN_PASSWORD);
 
-    if (adminExists) {
-      return NextResponse.json({
-        success: true,
-        message: 'Usuario admin ya existe',
-        created: false,
-      });
-    }
-
-    // Crear usuario admin por defecto
-    const passwordHash = await bcrypt.hash('Password123!', 10);
-
-    const admin = await prisma.usuario.create({
-      data: {
-        email: 'admin@pani.go.cr',
+    // Usar upsert para crear o actualizar
+    const admin = await prisma.usuario.upsert({
+      where: { email: ADMIN_EMAIL },
+      update: {
+        passwordHash,
+        activo: true,
+      },
+      create: {
+        email: ADMIN_EMAIL,
         nombre: 'Administrador Sistema',
         passwordHash,
         rol: 'ADMINISTRADOR_CONTRATISTA',
@@ -37,8 +33,7 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
-      message: 'Usuario admin creado exitosamente',
-      created: true,
+      message: 'Usuario admin configurado exitosamente',
       user: {
         email: admin.email,
         nombre: admin.nombre,
@@ -58,8 +53,8 @@ export async function GET() {
   return NextResponse.json({
     message: 'Use POST para ejecutar el seed',
     credentials: {
-      email: 'admin@pani.go.cr',
-      password: 'Password123!',
+      email: ADMIN_EMAIL,
+      password: ADMIN_PASSWORD,
     },
   });
 }
