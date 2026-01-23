@@ -17,7 +17,7 @@ datasource db {
 enum RolUsuario {
   ADMINISTRADOR_CONTRATISTA
   OPERADOR_BODEGA
-  FISCALIZADOR_PANI
+  FISCALIZADOR_EXTERNO
   AUDITOR
 }
 
@@ -39,10 +39,11 @@ model Usuario {
   ultimoAcceso      DateTime?
 
   // Relaciones
-  movimientos       Movimiento[]
-  cortesSolicitados Corte[]
-  bitacoras         Bitacora[]
-  sesiones          Sesion[]
+  movimientos            Movimiento[]
+  cortesSolicitados      Corte[]
+  bitacoras              Bitacora[]
+  sesiones               Sesion[]
+  documentosRecepcion    DocumentoRecepcion[]
 
   @@map("usuarios")
 }
@@ -104,6 +105,9 @@ model Proveedor {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Relaciones
+  documentosRecepcion DocumentoRecepcion[]
+
   @@map("proveedores")
 }
 
@@ -127,6 +131,14 @@ model Articulo {
   ivaPercent        Float     @default(0.13) // 0.00 para exento o 0.13 para gravado
   observaciones     String?   @db.Text  // Notas adicionales del artículo
 
+  // FASE 2: Campos adicionales según requisitos de Bodega en Custodia
+  codigoPANI        String?            // Código del Patronato Nacional de la Infancia
+  codigoSICOP       String?            // Código del Sistema Integrado de Compras Públicas
+  codigoSICOPL      String?            // Código SICOP alternativo (si aplica)
+  categoria         String?            // Familia del producto: arroz, enlatados, limpieza, etc.
+  precio            Float?             // Precio de venta del producto
+  costoReferencia   Float?             // Costo base del artículo
+
   // Unidad de medida
   unidadMedida      String    // ej: "unidades", "kg", "litros", etc.
 
@@ -145,6 +157,7 @@ model Articulo {
   // Relaciones
   lotes             Lote[]
   movimientos       Movimiento[]
+  detallesRecepcion DetalleRecepcion[]
 
   @@index([descripcionSIGAF])
   @@index([codigoBarras])
@@ -192,6 +205,7 @@ model Lote {
   // Relaciones
   movimientos         Movimiento[]
   cortesDetalle       CorteDetalle[]
+  detalleRecepcion    DetalleRecepcion?
 
   @@index([articuloId, fechaIngresoTs]) // Crítico para consultas PEPS
   @@index([fechaVencimiento]) // Para alertas de vencimiento
@@ -264,6 +278,9 @@ model Movimiento {
 
   // REQUERIMIENTO: Firma digital / hash del documento
   hashDocumento       String?
+
+  // Relación con detalle de recepción multi-producto
+  detalleRecepcion    DetalleRecepcion?
 
   @@index([articuloId, timestamp])
   @@index([tipo, timestamp])
@@ -495,4 +512,100 @@ model Configuracion {
   actualizadoEn   DateTime @updatedAt
 
   @@map("configuracion")
+}
+
+// ============================================
+// RECEPCIONES MULTI-PRODUCTO
+// ============================================
+
+enum EstadoDocumentoRecepcion {
+  BORRADOR
+  PROCESADO
+  ANULADO_PARCIAL
+  ANULADO_TOTAL
+}
+
+// Encabezado del documento de recepción
+model DocumentoRecepcion {
+  id                  String   @id @default(cuid())
+  numero              String   @unique  // REC-2025-00001
+
+  // Proveedor
+  proveedorId         String?
+  proveedor           Proveedor? @relation(fields: [proveedorId], references: [id])
+  documentoExterno    String?   // Factura, guía del proveedor
+  fechaDocumento      DateTime?
+
+  // Totales valorizados
+  subtotalSinIva      Float    @default(0)
+  montoIva            Float    @default(0)
+  totalConIva         Float    @default(0)
+
+  // Estado del documento
+  estado              EstadoDocumentoRecepcion @default(BORRADOR)
+  observaciones       String?  @db.Text
+
+  // Control de anulación
+  motivoAnulacion     String?
+  anuladoEn           DateTime?
+  anuladoPorId        String?
+
+  // Usuario responsable
+  usuarioId           String
+  usuario             Usuario  @relation(fields: [usuarioId], references: [id])
+
+  // Auditoría
+  timestamp           DateTime @default(now())
+  actualizadoEn       DateTime @updatedAt
+  ip                  String?
+  userAgent           String?
+
+  // Relaciones
+  detalles            DetalleRecepcion[]
+
+  @@index([numero])
+  @@index([estado])
+  @@index([timestamp])
+  @@map("documentos_recepcion")
+}
+
+// Líneas del documento de recepción
+model DetalleRecepcion {
+  id                  String   @id @default(cuid())
+  documentoId         String
+  documento           DocumentoRecepcion @relation(fields: [documentoId], references: [id])
+
+  // Número de línea para ordenamiento
+  numeroLinea         Int
+
+  // Artículo recepcionado
+  articuloId          String
+  articulo            Articulo @relation(fields: [articuloId], references: [id])
+
+  // Datos del lote
+  cantidad            Float
+  costoUnitario       Float?
+  fechaVencimiento    DateTime
+  numeroLoteProveedor String?
+  ubicacion           String?
+
+  // Valorización de la línea
+  subtotalSinIva      Float?
+  montoIva            Float?
+  totalConIva         Float?
+
+  // Referencias a lote y movimiento creados (cuando se procesa)
+  loteId              String?  @unique
+  lote                Lote?    @relation(fields: [loteId], references: [id])
+  movimientoId        String?  @unique
+  movimiento          Movimiento? @relation(fields: [movimientoId], references: [id])
+
+  // Estado de la línea
+  procesado           Boolean  @default(false)
+  anulado             Boolean  @default(false)
+  motivoAnulacion     String?
+
+  @@unique([documentoId, numeroLinea])
+  @@index([documentoId])
+  @@map("detalles_recepcion")
 }

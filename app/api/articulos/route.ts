@@ -28,6 +28,13 @@ const createArticuloSchema = z.object({
   marca: z.string().max(100).optional().nullable(),
   ivaPercent: z.number().min(0).max(1).optional().default(0.13),
   observaciones: z.string().max(2000).optional().nullable(),
+  // FASE 2: Campos adicionales según requisitos de Bodega en Custodia
+  codigoPANI: z.string().max(50).optional().nullable(),
+  codigoSICOP: z.string().max(50).optional().nullable(),
+  codigoSICOPL: z.string().max(50).optional().nullable(),
+  categoria: z.string().max(100).optional().nullable(),
+  precio: z.number().min(0).optional().nullable(),
+  costoReferencia: z.number().min(0).optional().nullable(),
 });
 
 export async function GET() {
@@ -49,6 +56,13 @@ export async function GET() {
         marca: true,
         ivaPercent: true,
         observaciones: true,
+        // FASE 2: Campos adicionales Bodega en Custodia
+        codigoPANI: true,
+        codigoSICOP: true,
+        codigoSICOPL: true,
+        categoria: true,
+        precio: true,
+        costoReferencia: true,
         _count: {
           select: {
             lotes: {
@@ -179,6 +193,13 @@ export async function POST(request: NextRequest) {
         marca: data.marca,
         ivaPercent: data.ivaPercent ?? 0.13,
         observaciones: data.observaciones,
+        // FASE 2: Campos adicionales Bodega en Custodia
+        codigoPANI: data.codigoPANI,
+        codigoSICOP: data.codigoSICOP,
+        codigoSICOPL: data.codigoSICOPL,
+        categoria: data.categoria,
+        precio: data.precio,
+        costoReferencia: data.costoReferencia,
       },
     });
 

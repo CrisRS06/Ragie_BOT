@@ -21,6 +21,20 @@ const updateArticuloSchema = z.object({
   stockMinimo: z.number().min(0).optional(),
   stockMaximo: z.number().min(0).optional().nullable(),
   codigoSIGAF: z.string().max(50).optional().nullable(),
+  descripcion: z.string().max(500).optional().nullable(),
+  requiereVencimiento: z.boolean().optional(),
+  // FASE 1: Campos adicionales PANI
+  codigoBarras: z.string().max(50).optional().nullable(),
+  marca: z.string().max(100).optional().nullable(),
+  ivaPercent: z.number().min(0).max(1).optional(),
+  observaciones: z.string().max(2000).optional().nullable(),
+  // FASE 2: Campos adicionales Bodega en Custodia
+  codigoPANI: z.string().max(50).optional().nullable(),
+  codigoSICOP: z.string().max(50).optional().nullable(),
+  codigoSICOPL: z.string().max(50).optional().nullable(),
+  categoria: z.string().max(100).optional().nullable(),
+  precio: z.number().min(0).optional().nullable(),
+  costoReferencia: z.number().min(0).optional().nullable(),
 });
 
 interface RouteParams {

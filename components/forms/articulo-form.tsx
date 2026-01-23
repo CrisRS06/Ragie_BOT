@@ -27,6 +27,13 @@ interface Articulo {
   stockMinimo?: number | null;
   stockMaximo?: number | null;
   requiereVencimiento: boolean;
+  // FASE 2: Campos adicionales Bodega en Custodia
+  codigoPANI?: string | null;
+  codigoSICOP?: string | null;
+  codigoSICOPL?: string | null;
+  categoria?: string | null;
+  precio?: number | null;
+  costoReferencia?: number | null;
 }
 
 interface ArticuloFormProps {
@@ -45,6 +52,24 @@ const UNIDADES_MEDIDA = [
   { value: 'ROLLO', label: 'Rollo' },
   { value: 'GALON', label: 'Galón' },
   { value: 'LIBRA', label: 'Libra' },
+];
+
+const CATEGORIAS = [
+  { value: '', label: 'Seleccione una categoría' },
+  { value: 'ARROZ', label: 'Arroz' },
+  { value: 'GRANOS', label: 'Granos y Legumbres' },
+  { value: 'ENLATADOS', label: 'Enlatados' },
+  { value: 'LACTEOS', label: 'Lácteos' },
+  { value: 'CEREALES', label: 'Cereales' },
+  { value: 'HARINAS', label: 'Harinas' },
+  { value: 'ACEITES', label: 'Aceites y Grasas' },
+  { value: 'CONDIMENTOS', label: 'Condimentos y Especias' },
+  { value: 'BEBIDAS', label: 'Bebidas' },
+  { value: 'CARNES', label: 'Carnes y Embutidos' },
+  { value: 'LIMPIEZA', label: 'Productos de Limpieza' },
+  { value: 'HIGIENE', label: 'Higiene Personal' },
+  { value: 'DESECHABLES', label: 'Desechables' },
+  { value: 'OTROS', label: 'Otros' },
 ];
 
 export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
@@ -69,6 +94,13 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
     stockMinimo: '',
     stockMaximo: '',
     requiereVencimiento: true,
+    // FASE 2: Campos adicionales Bodega en Custodia
+    codigoPANI: '',
+    codigoSICOP: '',
+    codigoSICOPL: '',
+    categoria: '',
+    precio: '',
+    costoReferencia: '',
   });
 
   // Errores de validación por campo
@@ -92,6 +124,13 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
         stockMinimo: articulo.stockMinimo?.toString() || '',
         stockMaximo: articulo.stockMaximo?.toString() || '',
         requiereVencimiento: articulo.requiereVencimiento ?? true,
+        // FASE 2: Campos adicionales Bodega en Custodia
+        codigoPANI: articulo.codigoPANI || '',
+        codigoSICOP: articulo.codigoSICOP || '',
+        codigoSICOPL: articulo.codigoSICOPL || '',
+        categoria: articulo.categoria || '',
+        precio: articulo.precio?.toString() || '',
+        costoReferencia: articulo.costoReferencia?.toString() || '',
       });
     }
   }, [mode, articulo]);
@@ -180,6 +219,13 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
         stockMinimo: formData.stockMinimo ? parseFloat(formData.stockMinimo) : null,
         stockMaximo: formData.stockMaximo ? parseFloat(formData.stockMaximo) : null,
         requiereVencimiento: formData.requiereVencimiento,
+        // FASE 2: Campos adicionales Bodega en Custodia
+        codigoPANI: formData.codigoPANI?.trim() || null,
+        codigoSICOP: formData.codigoSICOP?.trim() || null,
+        codigoSICOPL: formData.codigoSICOPL?.trim() || null,
+        categoria: formData.categoria?.trim() || null,
+        precio: formData.precio ? parseFloat(formData.precio) : null,
+        costoReferencia: formData.costoReferencia ? parseFloat(formData.costoReferencia) : null,
       };
 
       const url = mode === 'create'
@@ -440,6 +486,133 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
             onChange={handleChange}
             disabled={loading}
           />
+        </div>
+      </div>
+
+      {/* Sección: Códigos Gubernamentales */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Códigos Gubernamentales</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Códigos de identificación para sistemas gubernamentales de Costa Rica
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Código PANI */}
+          <div>
+            <Label htmlFor="codigoPANI">
+              Código PANI
+            </Label>
+            <Input
+              id="codigoPANI"
+              name="codigoPANI"
+              type="text"
+              placeholder="Ej: PANI-001"
+              value={formData.codigoPANI}
+              onChange={handleChange}
+              disabled={loading}
+            />
+            <p className="mt-1 text-xs text-gray-500">Patronato Nacional de la Infancia</p>
+          </div>
+
+          {/* Código SICOP */}
+          <div>
+            <Label htmlFor="codigoSICOP">
+              Código SICOP
+            </Label>
+            <Input
+              id="codigoSICOP"
+              name="codigoSICOP"
+              type="text"
+              placeholder="Ej: SICOP-12345"
+              value={formData.codigoSICOP}
+              onChange={handleChange}
+              disabled={loading}
+            />
+            <p className="mt-1 text-xs text-gray-500">Sistema Integrado de Compras Públicas</p>
+          </div>
+
+          {/* Código SICOPL */}
+          <div>
+            <Label htmlFor="codigoSICOPL">
+              Código SICOPL
+            </Label>
+            <Input
+              id="codigoSICOPL"
+              name="codigoSICOPL"
+              type="text"
+              placeholder="Ej: SICOPL-001"
+              value={formData.codigoSICOPL}
+              onChange={handleChange}
+              disabled={loading}
+            />
+            <p className="mt-1 text-xs text-gray-500">Código SICOP alternativo (si aplica)</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Sección: Información Comercial */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Información Comercial</h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Categoría / Familia */}
+          <div>
+            <Label htmlFor="categoria">
+              Categoría / Familia
+            </Label>
+            <Select
+              id="categoria"
+              name="categoria"
+              value={formData.categoria}
+              onChange={handleChange}
+              disabled={loading}
+            >
+              {CATEGORIAS.map((cat) => (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
+                </option>
+              ))}
+            </Select>
+            <p className="mt-1 text-xs text-gray-500">Familia del producto para clasificación</p>
+          </div>
+
+          {/* Precio */}
+          <div>
+            <Label htmlFor="precio">
+              Precio de Venta
+            </Label>
+            <Input
+              id="precio"
+              name="precio"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Ej: 1500.00"
+              value={formData.precio}
+              onChange={handleChange}
+              disabled={loading}
+            />
+            <p className="mt-1 text-xs text-gray-500">Precio de venta en colones</p>
+          </div>
+
+          {/* Costo de Referencia */}
+          <div>
+            <Label htmlFor="costoReferencia">
+              Costo de Referencia
+            </Label>
+            <Input
+              id="costoReferencia"
+              name="costoReferencia"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Ej: 1200.00"
+              value={formData.costoReferencia}
+              onChange={handleChange}
+              disabled={loading}
+            />
+            <p className="mt-1 text-xs text-gray-500">Costo base del artículo en colones</p>
+          </div>
         </div>
       </div>
 
