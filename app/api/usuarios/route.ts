@@ -6,10 +6,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUserId } from '@/lib/auth';
+import { getCurrentUserId, hashPassword } from '@/lib/auth';
 import { registrarBitacora } from '@/lib/services/bitacora.service';
 import { z } from 'zod';
-import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,11 +19,6 @@ const createUsuarioSchema = z.object({
   password: z.string().min(8, 'Contraseña debe tener al menos 8 caracteres'),
   rol: z.enum(['ADMINISTRADOR_CONTRATISTA', 'OPERADOR_BODEGA', 'FISCALIZADOR_EXTERNO', 'AUDITOR']),
 });
-
-// Función simple para hash de contraseña (en producción usar bcrypt)
-function hashPassword(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
 
 /**
  * GET /api/usuarios - Lista todos los usuarios
@@ -109,7 +103,7 @@ export async function POST(request: NextRequest) {
       data: {
         email: data.email.toLowerCase(),
         nombre: data.nombre,
-        passwordHash: hashPassword(data.password),
+        passwordHash: await hashPassword(data.password),
         rol: data.rol,
         activo: true,
       },

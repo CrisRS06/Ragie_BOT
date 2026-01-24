@@ -7,10 +7,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUserId } from '@/lib/auth';
+import { getCurrentUserId, hashPassword } from '@/lib/auth';
 import { registrarBitacora } from '@/lib/services/bitacora.service';
 import { z } from 'zod';
-import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,10 +19,6 @@ const updateUsuarioSchema = z.object({
   rol: z.enum(['ADMINISTRADOR_CONTRATISTA', 'OPERADOR_BODEGA', 'FISCALIZADOR_EXTERNO', 'AUDITOR']).optional(),
   password: z.string().min(8).optional(),
 });
-
-function hashPassword(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -118,7 +113,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const updateData: Record<string, unknown> = {};
     if (data.nombre) updateData.nombre = data.nombre;
     if (data.rol) updateData.rol = data.rol;
-    if (data.password) updateData.passwordHash = hashPassword(data.password);
+    if (data.password) updateData.passwordHash = await hashPassword(data.password);
 
     // Actualizar usuario
     const usuarioActualizado = await prisma.usuario.update({
