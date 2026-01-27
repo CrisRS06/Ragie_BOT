@@ -35,13 +35,46 @@ interface Metricas {
   informeMensualPendiente: boolean;
 }
 
+interface AlertaVencimiento {
+  id: string;
+  severidad: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA';
+  mensaje: string;
+  diasHastaVencimiento: number;
+  vencido: boolean;
+  lote: {
+    id: string;
+    numeroLote: string;
+    cantidadDisponible: number;
+    fechaVencimiento: string;
+    ubicacion: string | null;
+  };
+  articulo: {
+    id: string;
+    sku: string;
+    nombre: string;
+    unidad_medida: string;
+  };
+}
+
+interface ResumenAlertas {
+  total: number;
+  criticas: number;
+  altas: number;
+  medias: number;
+  bajas: number;
+  vencidos: number;
+}
+
 export default function DashboardPage() {
   const [metricas, setMetricas] = useState<Metricas | null>(null);
+  const [alertasVencimiento, setAlertasVencimiento] = useState<AlertaVencimiento[]>([]);
+  const [resumenAlertas, setResumenAlertas] = useState<ResumenAlertas | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMetricas();
+    fetchAlertasVencimiento();
   }, []);
 
   const fetchMetricas = async () => {
@@ -60,6 +93,20 @@ export default function DashboardPage() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAlertasVencimiento = async () => {
+    try {
+      const response = await fetch('/api/alertas/vencimientos?dias=30&limite=10');
+      const data = await response.json();
+
+      if (data.success) {
+        setAlertasVencimiento(data.alertas);
+        setResumenAlertas(data.resumen);
+      }
+    } catch (err) {
+      console.error('Error al cargar alertas de vencimiento:', err);
     }
   };
 
@@ -238,6 +285,83 @@ export default function DashboardPage() {
           />
         </div>
       </div>
+
+      {/* Alertas de Vencimiento - Widget detallado */}
+      {alertasVencimiento.length > 0 && (
+        <div className="mb-8 bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-medium text-gray-900">Alertas de Vencimiento</h2>
+              {resumenAlertas && (
+                <div className="flex gap-2">
+                  {resumenAlertas.criticas > 0 && (
+                    <span className="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-800 rounded-full">
+                      {resumenAlertas.criticas} critica{resumenAlertas.criticas !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {resumenAlertas.altas > 0 && (
+                    <span className="px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">
+                      {resumenAlertas.altas} alta{resumenAlertas.altas !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+            <Link href="/inventario" className="text-sm text-blue-600 hover:text-blue-800">
+              Ver inventario →
+            </Link>
+          </div>
+          <div className="p-4">
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {alertasVencimiento.map((alerta) => (
+                <div
+                  key={alerta.id}
+                  className={`flex items-start justify-between p-3 rounded-lg border ${
+                    alerta.severidad === 'CRITICA'
+                      ? 'bg-red-50 border-red-200'
+                      : alerta.severidad === 'ALTA'
+                      ? 'bg-orange-50 border-orange-200'
+                      : alerta.severidad === 'MEDIA'
+                      ? 'bg-yellow-50 border-yellow-200'
+                      : 'bg-blue-50 border-blue-200'
+                  }`}
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                          alerta.severidad === 'CRITICA'
+                            ? 'bg-red-100 text-red-800'
+                            : alerta.severidad === 'ALTA'
+                            ? 'bg-orange-100 text-orange-800'
+                            : alerta.severidad === 'MEDIA'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}
+                      >
+                        {alerta.severidad}
+                      </span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {alerta.articulo.sku} - {alerta.articulo.nombre}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-sm text-gray-600">
+                      {alerta.mensaje} | {alerta.lote.cantidadDisponible} {alerta.articulo.unidad_medida} disponibles
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      Lote: {alerta.lote.numeroLote}
+                      {alerta.lote.ubicacion && ` | Ubicación: ${alerta.lote.ubicacion}`}
+                    </div>
+                  </div>
+                  <div className="text-right text-xs text-gray-500 ml-4">
+                    {new Date(alerta.lote.fechaVencimiento).toLocaleDateString('es-CR')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Últimos Movimientos */}
       <div className="bg-white rounded-lg shadow">

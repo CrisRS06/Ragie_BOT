@@ -64,6 +64,14 @@ export default function DespachosPage() {
         offset: (page * limite).toString(),
       });
 
+      // Agregar filtros de fecha si están definidos
+      if (fechaDesde) {
+        params.set('fechaDesde', fechaDesde);
+      }
+      if (fechaHasta) {
+        params.set('fechaHasta', fechaHasta);
+      }
+
       const response = await fetch(`/api/despachos?${params}`);
       const data = await response.json();
 
@@ -83,17 +91,18 @@ export default function DespachosPage() {
 
   useEffect(() => {
     fetchDespachos();
-  }, [page]);
+  }, [page, fechaDesde, fechaHasta]);
 
   const handleBuscar = () => {
     setPage(0);
-    fetchDespachos();
+    // No need to call fetchDespachos() - useEffect will trigger it
   };
 
   const handleLimpiarFiltros = () => {
+    setBusqueda('');
+    // Setting dates will trigger useEffect and refetch
     setFechaDesde('');
     setFechaHasta('');
-    setBusqueda('');
     setPage(0);
   };
 

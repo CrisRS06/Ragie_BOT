@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { AlertDialog } from '@/components/ui/dialog';
 import { Plus, Search, Edit, Trash2, Users, AlertCircle, Mail, Shield } from 'lucide-react';
+import { useAdminAccess } from '@/hooks/useRoleAccess';
+import { AccessDenied } from '@/components/ui/access-denied';
 
 interface Usuario {
   id: string;
@@ -37,6 +39,7 @@ const rolColors: Record<string, string> = {
 };
 
 export default function AdminUsuariosPage() {
+  const { hasAccess, loading: accessLoading, error: accessError } = useAdminAccess();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +48,27 @@ export default function AdminUsuariosPage() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    fetchUsuarios();
-  }, []);
+    if (hasAccess) {
+      fetchUsuarios();
+    }
+  }, [hasAccess]);
+
+  // Mostrar loading mientras se verifica acceso
+  if (accessLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Verificando permisos...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar acceso denegado si no tiene permisos
+  if (!hasAccess) {
+    return <AccessDenied message={accessError || 'No tiene permisos para acceder a la administración de usuarios.'} />;
+  }
 
   const fetchUsuarios = async () => {
     try {

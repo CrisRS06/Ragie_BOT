@@ -132,9 +132,11 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const limite = parseInt(searchParams.get('limite') || '20')
     const offset = parseInt(searchParams.get('offset') || '0')
+    const fechaDesde = searchParams.get('fechaDesde')
+    const fechaHasta = searchParams.get('fechaHasta')
 
     // Obtener movimientos de salida (despachos)
-    const { data: movimientos, error, count } = await supabase
+    let query = supabase
       .from('movimientos')
       .select(`
         *,
@@ -143,7 +145,16 @@ export async function GET(request: NextRequest) {
       `, { count: 'exact' })
       .eq('tipo', 'SALIDA')
       .order('created_at', { ascending: false })
-      .range(offset, offset + limite - 1)
+
+    // Aplicar filtros de fecha
+    if (fechaDesde) {
+      query = query.gte('created_at', `${fechaDesde}T00:00:00`)
+    }
+    if (fechaHasta) {
+      query = query.lte('created_at', `${fechaHasta}T23:59:59`)
+    }
+
+    const { data: movimientos, error, count } = await query.range(offset, offset + limite - 1)
 
     if (error) {
       console.error('Error al listar despachos:', error)

@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Plus, Search, Edit, Trash2, Package, AlertCircle, Upload } from 'lucide-react';
 import { ImportArticulosModal } from '@/components/articulos/ImportArticulosModal';
+import { useAdminAccess } from '@/hooks/useRoleAccess';
+import { AccessDenied } from '@/components/ui/access-denied';
 
 interface Articulo {
   id: string;
@@ -27,6 +29,7 @@ interface Articulo {
 }
 
 export default function AdminArticulosPage() {
+  const { hasAccess, loading: accessLoading, error: accessError } = useAdminAccess();
   const [articulos, setArticulos] = useState<Articulo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,8 +39,27 @@ export default function AdminArticulosPage() {
   const [importModalOpen, setImportModalOpen] = useState(false);
 
   useEffect(() => {
-    fetchArticulos();
-  }, []);
+    if (hasAccess) {
+      fetchArticulos();
+    }
+  }, [hasAccess]);
+
+  // Mostrar loading mientras se verifica acceso
+  if (accessLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Verificando permisos...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar acceso denegado si no tiene permisos
+  if (!hasAccess) {
+    return <AccessDenied message={accessError || 'No tiene permisos para acceder a la administración de artículos.'} />;
+  }
 
   const fetchArticulos = async () => {
     try {

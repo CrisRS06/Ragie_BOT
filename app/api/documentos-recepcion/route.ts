@@ -77,9 +77,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/documentos-recepcion - Crear documento
- * NOTA: Esta funcionalidad requiere logica compleja de transacciones.
- * Stub para version Supabase.
+ * POST /api/documentos-recepcion - Crear documento de recepcion multi-producto
  */
 export async function POST(request: NextRequest) {
   try {
@@ -93,17 +91,101 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Esta funcionalidad requiere el servicio documento-recepcion.service
-    // que usa Prisma con transacciones complejas.
-    // Por ahora, retornamos un stub.
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Funcionalidad no implementada en version Supabase',
-        message: 'Esta operacion requiere migracion del servicio documento-recepcion.service a Supabase',
+    const body = await request.json()
+    const { proveedorId, documentoExterno, fechaDocumento, observaciones, detalles } = body
+
+    // Validar que hay detalles
+    if (!detalles || !Array.isArray(detalles) || detalles.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Debe incluir al menos un articulo en el documento' },
+        { status: 400 }
+      )
+    }
+
+    // Generar numero de documento
+    const fecha = new Date()
+    const anio = fecha.getFullYear()
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0')
+
+    // Obtener contador para numero secuencial
+    const { count } = await supabase
+      .from('documentos_recepcion')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', `${anio}-${mes}-01`)
+
+    const secuencial = String((count || 0) + 1).padStart(4, '0')
+    const numero = `REC-${anio}${mes}-${secuencial}`
+
+    // Crear documento en estado BORRADOR
+    const { data: documento, error: docError } = await supabase
+      .from('documentos_recepcion')
+      .insert({
+        numero,
+        proveedor_id: proveedorId || null,
+        documento_externo: documentoExterno || null,
+        fecha_documento: fechaDocumento || null,
+        observaciones: observaciones || null,
+        estado: 'BORRADOR',
+        usuario_id: user.id,
+      })
+      .select()
+      .single()
+
+    if (docError) {
+      throw docError
+    }
+
+    // Insertar detalles
+    const detallesInsert = detalles.map((detalle: {
+      articuloId: string
+      cantidad: number
+      costoUnitario?: number
+      fechaVencimiento?: string
+      numeroLoteProveedor?: string
+      ubicacion?: string
+    }) => ({
+      documento_id: documento.id,
+      articulo_id: detalle.articuloId,
+      cantidad: detalle.cantidad,
+      costo_unitario: detalle.costoUnitario || null,
+      fecha_vencimiento: detalle.fechaVencimiento || null,
+      numero_lote_proveedor: detalle.numeroLoteProveedor || null,
+      ubicacion: detalle.ubicacion || null,
+    }))
+
+    const { error: detallesError } = await supabase
+      .from('detalles_recepcion')
+      .insert(detallesInsert)
+
+    if (detallesError) {
+      // Eliminar documento si falla
+      await supabase.from('documentos_recepcion').delete().eq('id', documento.id)
+      throw detallesError
+    }
+
+    // Registrar en audit_log
+    await supabase.from('audit_log').insert({
+      usuario_id: user.id,
+      accion: 'CREAR_DOCUMENTO_RECEPCION',
+      entidad: 'documentos_recepcion',
+      entidad_id: documento.id,
+      datos_nuevos: {
+        numero,
+        proveedorId,
+        cantidadArticulos: detalles.length,
       },
-      { status: 501 }
-    )
+    })
+
+    return NextResponse.json({
+      success: true,
+      documento: {
+        id: documento.id,
+        numero: documento.numero,
+        estado: documento.estado,
+        cantidadArticulos: detalles.length,
+      },
+      mensaje: `Documento ${numero} creado en estado BORRADOR`,
+    })
   } catch (error) {
     console.error('Error al crear documento de recepcion:', error)
     return NextResponse.json(

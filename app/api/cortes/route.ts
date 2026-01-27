@@ -103,16 +103,124 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Esta funcionalidad requiere el servicio cortes.service
-    // que usa funciones complejas de generacion de cortes y hashes.
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Creacion de cortes no implementada en version Supabase',
-        message: 'Esta operacion requiere migracion del servicio cortes.service a Supabase',
+    const body = await request.json().catch(() => ({}))
+    const tipo = body.tipo || 'BAJO_DEMANDA'
+    const motivo = body.motivo || null
+
+    // 1. Obtener todos los lotes con inventario disponible
+    const { data: lotes, error: lotesError } = await supabase
+      .from('lotes')
+      .select(`
+        id,
+        articulo_id,
+        cantidad_disponible,
+        fecha_vencimiento,
+        ubicacion,
+        articulos (id, sku, nombre, unidad_medida)
+      `)
+      .gt('cantidad_disponible', 0)
+      .eq('activo', true)
+      .order('articulo_id')
+      .order('fecha_ingreso', { ascending: true })
+
+    if (lotesError) {
+      throw lotesError
+    }
+
+    const lotesActivos = lotes || []
+
+    // 2. Crear snapshot de datos para hash
+    const snapshotData = lotesActivos.map(lote => ({
+      articulo_id: lote.articulo_id,
+      lote_id: lote.id,
+      cantidad: lote.cantidad_disponible,
+      fecha_vencimiento: lote.fecha_vencimiento,
+      ubicacion: lote.ubicacion,
+    }))
+
+    // 3. Generar hash SHA-256 del snapshot
+    const snapshotString = JSON.stringify(snapshotData, Object.keys(snapshotData[0] || {}).sort())
+    const encoder = new TextEncoder()
+    const data = encoder.encode(snapshotString + new Date().toISOString())
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const hashSnapshot = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+
+    // 4. Contar articulos y lotes unicos
+    const articulosUnicos = new Set(lotesActivos.map(l => l.articulo_id))
+    const totalArticulos = articulosUnicos.size
+    const totalLotes = lotesActivos.length
+
+    // 5. Crear registro de corte
+    const { data: corte, error: corteError } = await supabase
+      .from('cortes')
+      .insert({
+        tipo,
+        motivo,
+        hash_snapshot: hashSnapshot,
+        total_articulos: totalArticulos,
+        total_lotes: totalLotes,
+        completado: true,
+        solicitado_por_id: user.id,
+      })
+      .select()
+      .single()
+
+    if (corteError) {
+      throw corteError
+    }
+
+    // 6. Crear detalles del corte
+    if (lotesActivos.length > 0) {
+      const detallesCorte = lotesActivos.map(lote => ({
+        corte_id: corte.id,
+        articulo_id: lote.articulo_id,
+        lote_id: lote.id,
+        cantidad: lote.cantidad_disponible,
+        fecha_vencimiento: lote.fecha_vencimiento,
+        ubicacion: lote.ubicacion,
+      }))
+
+      const { error: detallesError } = await supabase
+        .from('detalles_corte')
+        .insert(detallesCorte)
+
+      if (detallesError) {
+        // Revertir corte si falla
+        await supabase.from('cortes').delete().eq('id', corte.id)
+        throw detallesError
+      }
+    }
+
+    // 7. Registrar en audit_log
+    await supabase.from('audit_log').insert({
+      usuario_id: user.id,
+      accion: 'CREAR_CORTE',
+      entidad: 'cortes',
+      entidad_id: corte.id,
+      datos_nuevos: {
+        tipo,
+        motivo,
+        totalArticulos,
+        totalLotes,
+        hashSnapshot,
       },
-      { status: 501 }
-    )
+    })
+
+    return NextResponse.json({
+      success: true,
+      corte: {
+        id: corte.id,
+        tipo: corte.tipo,
+        timestamp: corte.created_at,
+        motivo: corte.motivo,
+        hashSnapshot: corte.hash_snapshot,
+        totalArticulos: corte.total_articulos,
+        totalLotes: corte.total_lotes,
+        completado: corte.completado,
+      },
+      mensaje: `Corte de existencias creado exitosamente con ${totalArticulos} articulos y ${totalLotes} lotes`,
+    })
   } catch (error) {
     console.error('Error al crear corte:', error)
     return NextResponse.json(

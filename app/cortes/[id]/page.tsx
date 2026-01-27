@@ -51,7 +51,7 @@ interface Verificacion {
   verificadoEn: string;
 }
 
-export default function DetalleAortePage({ params }: { params: Promise<{ id: string }> }) {
+export default function DetalleCortePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const [corte, setCorte] = useState<CorteDetalle | null>(null);
   const [detalles, setDetalles] = useState<DetalleArticulo[]>([]);

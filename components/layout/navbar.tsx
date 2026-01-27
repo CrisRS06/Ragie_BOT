@@ -19,11 +19,23 @@ import {
   X,
   Settings,
   LogOut,
+  ChevronDown,
+  Users,
+  Truck,
+  Wrench,
+  Building2,
+  Ruler,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface AdminSubItem {
   name: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -65,10 +77,38 @@ const navigation: NavItem[] = [
     href: '/auditoria',
     icon: AlertCircle,
   },
+];
+
+const adminSubNavigation: AdminSubItem[] = [
   {
-    name: 'Admin',
+    name: 'Artículos',
     href: '/admin/articulos',
-    icon: Settings,
+    icon: Package,
+  },
+  {
+    name: 'Usuarios',
+    href: '/admin/usuarios',
+    icon: Users,
+  },
+  {
+    name: 'Proveedores',
+    href: '/admin/proveedores',
+    icon: Truck,
+  },
+  {
+    name: 'Unidades Receptoras',
+    href: '/admin/unidades-receptoras',
+    icon: Building2,
+  },
+  {
+    name: 'Unidades de Medida',
+    href: '/admin/unidades-medida',
+    icon: Ruler,
+  },
+  {
+    name: 'Configuración',
+    href: '/admin/configuracion',
+    icon: Wrench,
   },
 ];
 
@@ -76,6 +116,7 @@ export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false);
   const [user, setUser] = useState<{ nombre: string; email: string; rolDisplay: string } | null>(null);
 
   useEffect(() => {
@@ -145,6 +186,50 @@ export function Navbar() {
                 </Link>
               );
             })}
+
+            {/* Admin Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setAdminMenuOpen(!adminMenuOpen)}
+                onBlur={() => setTimeout(() => setAdminMenuOpen(false), 150)}
+                className={cn(
+                  'flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition',
+                  pathname?.startsWith('/admin')
+                    ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                )}
+              >
+                <Settings className="w-4 h-4" />
+                <span>Admin</span>
+                <ChevronDown className={cn('w-4 h-4 transition-transform', adminMenuOpen && 'rotate-180')} />
+              </button>
+
+              {adminMenuOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                  {adminSubNavigation.map((item) => {
+                    const SubIcon = item.icon;
+                    const isSubActive = pathname === item.href;
+
+                    return (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        className={cn(
+                          'flex items-center space-x-3 px-4 py-2 text-sm transition',
+                          isSubActive
+                            ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        )}
+                        onClick={() => setAdminMenuOpen(false)}
+                      >
+                        <SubIcon className="w-4 h-4" />
+                        <span>{item.name}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Usuario y Tema */}
@@ -210,6 +295,34 @@ export function Navbar() {
                 </Link>
               );
             })}
+
+            {/* Admin Section in Mobile */}
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+              <p className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Administración
+              </p>
+              {adminSubNavigation.map((item) => {
+                const SubIcon = item.icon;
+                const isSubActive = pathname === item.href;
+
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={cn(
+                      'flex items-center space-x-3 px-3 py-2 rounded-md text-base font-medium',
+                      isSubActive
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    )}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <SubIcon className="w-5 h-5" />
+                    <span>{item.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
 
           {/* Usuario en mobile */}

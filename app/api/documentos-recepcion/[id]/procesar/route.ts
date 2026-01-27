@@ -15,6 +15,16 @@ interface RouteParams {
   params: Promise<{ id: string }>
 }
 
+interface DetalleRecepcion {
+  id: string
+  articulo_id: string
+  cantidad: number
+  costo_unitario: number | null
+  fecha_vencimiento: string | null
+  numero_lote_proveedor: string | null
+  ubicacion: string | null
+}
+
 /**
  * POST /api/documentos-recepcion/[id]/procesar
  * Procesa un documento en estado BORRADOR, creando los lotes y movimientos
@@ -32,17 +42,160 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // Esta funcionalidad requiere el servicio documento-recepcion.service
-    // que usa funciones complejas de transacciones Prisma.
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Procesamiento de documentos no implementado en version Supabase',
-        message: 'Esta operacion requiere migracion del servicio documento-recepcion.service a Supabase',
-        documentoId: id,
+    // 1. Obtener documento
+    const { data: documento, error: docError } = await supabase
+      .from('documentos_recepcion')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (docError || !documento) {
+      return NextResponse.json(
+        { success: false, error: 'Documento no encontrado' },
+        { status: 404 }
+      )
+    }
+
+    if (documento.estado !== 'BORRADOR') {
+      return NextResponse.json(
+        { success: false, error: `Documento en estado ${documento.estado}, solo se pueden procesar documentos en BORRADOR` },
+        { status: 400 }
+      )
+    }
+
+    // Obtener detalles del documento
+    const { data: detallesData, error: detallesError } = await supabase
+      .from('detalles_recepcion')
+      .select('*')
+      .eq('documento_id', id)
+
+    if (detallesError) {
+      throw detallesError
+    }
+
+    const detalles = (detallesData || []) as DetalleRecepcion[]
+    if (detalles.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Documento sin articulos para procesar' },
+        { status: 400 }
+      )
+    }
+
+    // 2. Procesar cada detalle: crear lote y movimiento
+    const lotesCreados: string[] = []
+    const movimientosCreados: string[] = []
+
+    for (const detalle of detalles) {
+      // Fecha de vencimiento requerida
+      if (!detalle.fecha_vencimiento) {
+        // Revertir cambios
+        if (lotesCreados.length > 0) {
+          await supabase.from('lotes').delete().in('id', lotesCreados)
+        }
+        if (movimientosCreados.length > 0) {
+          await supabase.from('movimientos').delete().in('id', movimientosCreados)
+        }
+        return NextResponse.json(
+          { success: false, error: `Articulo ${detalle.articulo_id} requiere fecha de vencimiento` },
+          { status: 400 }
+        )
+      }
+
+      // Crear lote
+      const { data: lote, error: loteError } = await supabase
+        .from('lotes')
+        .insert({
+          articulo_id: detalle.articulo_id,
+          cantidad_inicial: detalle.cantidad,
+          cantidad_disponible: detalle.cantidad,
+          fecha_ingreso: new Date().toISOString().split('T')[0],
+          fecha_vencimiento: detalle.fecha_vencimiento,
+          numero_lote: detalle.numero_lote_proveedor,
+          proveedor: documento.proveedor_id,
+          costo_unitario: detalle.costo_unitario,
+          ubicacion: detalle.ubicacion,
+          activo: true,
+          agotado: false,
+        })
+        .select()
+        .single()
+
+      if (loteError) {
+        // Revertir
+        if (lotesCreados.length > 0) {
+          await supabase.from('lotes').delete().in('id', lotesCreados)
+        }
+        throw loteError
+      }
+
+      lotesCreados.push(lote.id)
+
+      // Crear movimiento de entrada
+      const { data: movimiento, error: movError } = await supabase
+        .from('movimientos')
+        .insert({
+          tipo: 'ENTRADA',
+          articulo_id: detalle.articulo_id,
+          lote_id: lote.id,
+          cantidad: detalle.cantidad,
+          costo_unitario_peps: detalle.costo_unitario,
+          usuario_id: user.id,
+          documento_referencia: documento.numero,
+          observaciones: `Recepcion via documento ${documento.numero}`,
+        })
+        .select()
+        .single()
+
+      if (movError) {
+        // Revertir
+        await supabase.from('lotes').delete().in('id', lotesCreados)
+        if (movimientosCreados.length > 0) {
+          await supabase.from('movimientos').delete().in('id', movimientosCreados)
+        }
+        throw movError
+      }
+
+      movimientosCreados.push(movimiento.id)
+
+      // Actualizar detalle con lote_id
+      await supabase
+        .from('detalles_recepcion')
+        .update({ lote_id: lote.id })
+        .eq('id', detalle.id)
+    }
+
+    // 3. Actualizar estado del documento a PROCESADO
+    const { error: updateError } = await supabase
+      .from('documentos_recepcion')
+      .update({ estado: 'PROCESADO', updated_at: new Date().toISOString() })
+      .eq('id', id)
+
+    if (updateError) {
+      throw updateError
+    }
+
+    // 4. Registrar en audit_log
+    await supabase.from('audit_log').insert({
+      usuario_id: user.id,
+      accion: 'PROCESAR_DOCUMENTO_RECEPCION',
+      entidad: 'documentos_recepcion',
+      entidad_id: id,
+      datos_nuevos: {
+        lotesCreados: lotesCreados.length,
+        movimientosCreados: movimientosCreados.length,
       },
-      { status: 501 }
-    )
+    })
+
+    return NextResponse.json({
+      success: true,
+      documento: {
+        id: documento.id,
+        numero: documento.numero,
+        estado: 'PROCESADO',
+      },
+      lotesCreados: lotesCreados.length,
+      mensaje: `Documento ${documento.numero} procesado exitosamente. Se crearon ${lotesCreados.length} lotes.`,
+    })
   } catch (error) {
     console.error('Error al procesar documento de recepcion:', error)
     return NextResponse.json(
