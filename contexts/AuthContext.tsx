@@ -3,9 +3,11 @@
 /**
  * AuthContext - Proveedor de autenticación global
  * Centraliza las llamadas a /api/auth/me para evitar múltiples requests
+ * Refresca automáticamente al cambiar de ruta (después de login redirect)
  */
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 
 type RolUsuario = 'ADMINISTRADOR' | 'OPERADOR' | 'AUDITOR';
 
@@ -30,6 +32,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const pathname = usePathname();
+  const previousPathRef = useRef<string | null>(null);
 
   const fetchUser = useCallback(async () => {
     try {
@@ -58,9 +62,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Fetch inicial
   useEffect(() => {
     fetchUser();
   }, [fetchUser]);
+
+  // Refrescar cuando se navega desde /login a otra página (después de login exitoso)
+  useEffect(() => {
+    if (previousPathRef.current === '/login' && pathname !== '/login' && !user) {
+      fetchUser();
+    }
+    previousPathRef.current = pathname;
+  }, [pathname, user, fetchUser]);
 
   const refreshUser = useCallback(async () => {
     setLoading(true);
