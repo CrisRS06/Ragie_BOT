@@ -2,7 +2,7 @@
  * Hook para manejar notificaciones Toast
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 export interface Toast {
   id: string;
@@ -60,8 +60,8 @@ function removeToast(id: string) {
 export function useToast() {
   const [state, setState] = useState<ToastState>(memoryState);
 
-  // Suscribirse a cambios
-  useState(() => {
+  // Suscribirse a cambios (FIXED: usar useEffect en lugar de useState para cleanup)
+  useEffect(() => {
     listeners.push(setState);
     return () => {
       const index = listeners.indexOf(setState);
@@ -69,7 +69,7 @@ export function useToast() {
         listeners.splice(index, 1);
       }
     };
-  });
+  }, []);
 
   const toast = useCallback((options: Omit<Toast, 'id'>) => {
     return addToast(options);

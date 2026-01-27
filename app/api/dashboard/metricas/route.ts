@@ -33,25 +33,34 @@ export async function GET() {
       .select('*', { count: 'exact', head: true })
       .eq('activo', true)
 
-    // Obtener articulos con sus lotes para calcular stock
+    // Obtener articulos con stock en UNA sola query (evita N+1)
     const { data: articulos } = await supabase
       .from('articulos')
       .select('id, stock_minimo')
       .eq('activo', true)
+
+    // Obtener TODOS los lotes activos con stock en una sola query
+    const { data: todosLotes } = await supabase
+      .from('lotes')
+      .select('articulo_id, cantidad_disponible')
+      .eq('activo', true)
+      .gt('cantidad_disponible', 0)
+
+    // Calcular stock por artículo en memoria (mucho más rápido)
+    const stockPorArticulo: Record<string, number> = {}
+    if (todosLotes) {
+      for (const lote of todosLotes) {
+        const articuloId = lote.articulo_id
+        stockPorArticulo[articuloId] = (stockPorArticulo[articuloId] || 0) + Number(lote.cantidad_disponible)
+      }
+    }
 
     let articulosConStock = 0
     let articulosStockBajo = 0
 
     if (articulos) {
       for (const articulo of articulos) {
-        const { data: lotes } = await supabase
-          .from('lotes')
-          .select('cantidad_disponible')
-          .eq('articulo_id', articulo.id)
-          .eq('activo', true)
-          .gt('cantidad_disponible', 0)
-
-        const stockTotal = lotes?.reduce((sum, l) => sum + Number(l.cantidad_disponible), 0) || 0
+        const stockTotal = stockPorArticulo[articulo.id] || 0
 
         if (stockTotal > 0) {
           articulosConStock++

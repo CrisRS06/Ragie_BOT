@@ -5,7 +5,7 @@
  * Vista general del inventario con stock por artículo
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useDeferredValue } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -42,15 +42,18 @@ export default function InventarioPage() {
   const [busqueda, setBusqueda] = useState('');
   const [soloConStock, setSoloConStock] = useState(false);
 
+  // Debounce de búsqueda para evitar llamadas excesivas a la API
+  const deferredBusqueda = useDeferredValue(busqueda);
+
   useEffect(() => {
     fetchInventario();
-  }, [busqueda, soloConStock]);
+  }, [deferredBusqueda, soloConStock]);
 
   const fetchInventario = async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      if (busqueda) params.set('busqueda', busqueda);
+      if (deferredBusqueda) params.set('busqueda', deferredBusqueda);
       if (soloConStock) params.set('soloConStock', 'true');
 
       const response = await fetch(`/api/inventario?${params.toString()}`);

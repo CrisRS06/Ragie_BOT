@@ -178,49 +178,51 @@ export function Navbar() {
               );
             })}
 
-            {/* Admin Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setAdminMenuOpen(!adminMenuOpen)}
-                onBlur={() => setTimeout(() => setAdminMenuOpen(false), 150)}
-                className={cn(
-                  'flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition',
-                  pathname?.startsWith('/admin')
-                    ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+            {/* Admin Dropdown - Solo visible para ADMINISTRADOR */}
+            {user?.rol === 'ADMINISTRADOR' && (
+              <div className="relative">
+                <button
+                  onClick={() => setAdminMenuOpen(!adminMenuOpen)}
+                  onBlur={() => setTimeout(() => setAdminMenuOpen(false), 150)}
+                  className={cn(
+                    'flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition',
+                    pathname?.startsWith('/admin')
+                      ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                  )}
+                >
+                  <Settings className="w-4 h-4" />
+                  <span>Admin</span>
+                  <ChevronDown className={cn('w-4 h-4 transition-transform', adminMenuOpen && 'rotate-180')} />
+                </button>
+
+                {adminMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                    {adminSubNavigation.map((item) => {
+                      const SubIcon = item.icon;
+                      const isSubActive = pathname === item.href;
+
+                      return (
+                        <Link
+                          key={item.name}
+                          href={item.href}
+                          className={cn(
+                            'flex items-center space-x-3 px-4 py-2 text-sm transition',
+                            isSubActive
+                              ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                          )}
+                          onClick={() => setAdminMenuOpen(false)}
+                        >
+                          <SubIcon className="w-4 h-4" />
+                          <span>{item.name}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
                 )}
-              >
-                <Settings className="w-4 h-4" />
-                <span>Admin</span>
-                <ChevronDown className={cn('w-4 h-4 transition-transform', adminMenuOpen && 'rotate-180')} />
-              </button>
-
-              {adminMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
-                  {adminSubNavigation.map((item) => {
-                    const SubIcon = item.icon;
-                    const isSubActive = pathname === item.href;
-
-                    return (
-                      <Link
-                        key={item.name}
-                        href={item.href}
-                        className={cn(
-                          'flex items-center space-x-3 px-4 py-2 text-sm transition',
-                          isSubActive
-                            ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
-                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                        )}
-                        onClick={() => setAdminMenuOpen(false)}
-                      >
-                        <SubIcon className="w-4 h-4" />
-                        <span>{item.name}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Usuario y Tema */}
@@ -287,33 +289,35 @@ export function Navbar() {
               );
             })}
 
-            {/* Admin Section in Mobile */}
-            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-              <p className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Administración
-              </p>
-              {adminSubNavigation.map((item) => {
-                const SubIcon = item.icon;
-                const isSubActive = pathname === item.href;
+            {/* Admin Section in Mobile - Solo visible para ADMINISTRADOR */}
+            {user?.rol === 'ADMINISTRADOR' && (
+              <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                <p className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Administración
+                </p>
+                {adminSubNavigation.map((item) => {
+                  const SubIcon = item.icon;
+                  const isSubActive = pathname === item.href;
 
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={cn(
-                      'flex items-center space-x-3 px-3 py-2 rounded-md text-base font-medium',
-                      isSubActive
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                    )}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <SubIcon className="w-5 h-5" />
-                    <span>{item.name}</span>
-                  </Link>
-                );
-              })}
-            </div>
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className={cn(
+                        'flex items-center space-x-3 px-3 py-2 rounded-md text-base font-medium',
+                        isSubActive
+                          ? 'bg-blue-50 text-blue-700'
+                          : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                      )}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <SubIcon className="w-5 h-5" />
+                      <span>{item.name}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Usuario en mobile */}

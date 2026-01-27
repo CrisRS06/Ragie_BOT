@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Package } from 'lucide-react';
+import { login } from './actions';
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   // Check if already logged in
@@ -37,29 +38,22 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.append('email', email);
+      formData.append('password', password);
 
-      const data = await response.json();
+      const result = await login(formData);
 
-      if (data.success) {
-        router.push('/dashboard');
-        router.refresh();
-      } else {
-        setError(data.error || 'Error al iniciar sesión');
+      if (result?.error) {
+        setError(result.error);
       }
-    } catch {
-      setError('Error de conexión');
-    } finally {
-      setLoading(false);
-    }
+      // Si no hay error, el Server Action hace redirect automáticamente
+    });
   };
+
+  const loading = isPending;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4">

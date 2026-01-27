@@ -62,35 +62,45 @@ export async function GET() {
       )
     }
 
-    // Calcular stock total por articulo
-    const articulosConStock = await Promise.all(
-      (articulos || []).map(async (articulo) => {
-        const { data: stockData } = await supabase
-          .from('lotes')
-          .select('cantidad_disponible')
-          .eq('articulo_id', articulo.id)
-          .eq('activo', true)
-          .gt('cantidad_disponible', 0)
+    // Obtener TODOS los lotes activos en UNA sola query (evita N+1)
+    const { data: todosLotes } = await supabase
+      .from('lotes')
+      .select('articulo_id, cantidad_disponible')
+      .eq('activo', true)
+      .gt('cantidad_disponible', 0)
 
-        const stockTotal = stockData?.reduce((sum, lote) => sum + Number(lote.cantidad_disponible), 0) || 0
-        const lotesActivos = stockData?.length || 0
-
-        return {
-          id: articulo.id,
-          sku: articulo.sku,
-          nombre: articulo.nombre,
-          descripcion: articulo.descripcion,
-          descripcionSIGAF: articulo.descripcion_sigaf,
-          unidadMedida: articulo.unidad_medida,
-          ivaPercent: articulo.iva_percent,
-          activo: articulo.activo,
-          stockMinimo: articulo.stock_minimo,
-          marca: articulo.marca,
-          stockTotal,
-          lotesActivos,
+    // Calcular stock y conteo de lotes por artículo en memoria
+    const stockPorArticulo: Record<string, { total: number; count: number }> = {}
+    if (todosLotes) {
+      for (const lote of todosLotes) {
+        const articuloId = lote.articulo_id
+        if (!stockPorArticulo[articuloId]) {
+          stockPorArticulo[articuloId] = { total: 0, count: 0 }
         }
-      })
-    )
+        stockPorArticulo[articuloId].total += Number(lote.cantidad_disponible)
+        stockPorArticulo[articuloId].count++
+      }
+    }
+
+    // Mapear artículos con su stock (sin queries adicionales)
+    const articulosConStock = (articulos || []).map((articulo) => {
+      const stockInfo = stockPorArticulo[articulo.id] || { total: 0, count: 0 }
+
+      return {
+        id: articulo.id,
+        sku: articulo.sku,
+        nombre: articulo.nombre,
+        descripcion: articulo.descripcion,
+        descripcionSIGAF: articulo.descripcion_sigaf,
+        unidadMedida: articulo.unidad_medida,
+        ivaPercent: articulo.iva_percent,
+        activo: articulo.activo,
+        stockMinimo: articulo.stock_minimo,
+        marca: articulo.marca,
+        stockTotal: stockInfo.total,
+        lotesActivos: stockInfo.count,
+      }
+    })
 
     return NextResponse.json({
       success: true,
