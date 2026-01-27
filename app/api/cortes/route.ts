@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
 
@@ -129,6 +130,14 @@ export async function POST(request: NextRequest) {
 
     const lotesActivos = lotes || []
 
+    // Validar que hay inventario para crear corte
+    if (lotesActivos.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'No hay lotes con inventario disponible para crear corte',
+      }, { status: 400 })
+    }
+
     // 2. Crear snapshot de datos para hash
     const snapshotData = lotesActivos.map(lote => ({
       articulo_id: lote.articulo_id,
@@ -138,13 +147,12 @@ export async function POST(request: NextRequest) {
       ubicacion: lote.ubicacion,
     }))
 
-    // 3. Generar hash SHA-256 del snapshot
-    const snapshotString = JSON.stringify(snapshotData, Object.keys(snapshotData[0] || {}).sort())
-    const encoder = new TextEncoder()
-    const data = encoder.encode(snapshotString + new Date().toISOString())
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-    const hashArray = Array.from(new Uint8Array(hashBuffer))
-    const hashSnapshot = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+    // 3. Generar hash SHA-256 del snapshot usando Node.js crypto
+    const snapshotString = JSON.stringify(snapshotData)
+    const hashSnapshot = crypto
+      .createHash('sha256')
+      .update(snapshotString + new Date().toISOString())
+      .digest('hex')
 
     // 4. Contar articulos y lotes unicos
     const articulosUnicos = new Set(lotesActivos.map(l => l.articulo_id))

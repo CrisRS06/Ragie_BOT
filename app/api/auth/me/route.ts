@@ -20,7 +20,12 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      user: getUserDisplayInfo(userAuth),
+      user: {
+        id: userAuth.id,
+        email: userAuth.email,
+        nombre: userAuth.nombre,
+        rol: userAuth.rol,
+      },
     })
   } catch (error) {
     console.error('Error al obtener usuario:', error)

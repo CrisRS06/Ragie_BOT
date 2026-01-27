@@ -63,7 +63,16 @@ export async function GET() {
         const lotesActivos = stockData?.length || 0
 
         return {
-          ...articulo,
+          id: articulo.id,
+          sku: articulo.sku,
+          nombre: articulo.nombre,
+          descripcion: articulo.descripcion,
+          descripcionSIGAF: articulo.descripcion_sigaf,
+          unidadMedida: articulo.unidad_medida,
+          ivaPercent: articulo.iva_percent,
+          activo: articulo.activo,
+          stockMinimo: articulo.stock_minimo,
+          marca: articulo.marca,
           stockTotal,
           lotesActivos,
         }
