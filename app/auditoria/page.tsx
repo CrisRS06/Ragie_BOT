@@ -151,8 +151,8 @@ export default function AuditoriaPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Auditoría</h1>
-          <p className="text-gray-600">Bitácora inmutable con hash encadenado</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Auditoría</h1>
+          <p className="text-gray-600 dark:text-gray-400">Bitácora inmutable con hash encadenado</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={verificarIntegridad} isLoading={verificando}>
@@ -194,7 +194,7 @@ export default function AuditoriaPage() {
       {/* Filtros */}
       <Card className="mb-6">
         <CardContent className="pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
               <label className="text-sm text-gray-600 block mb-1">Desde</label>
               <Input
@@ -274,31 +274,31 @@ export default function AuditoriaPage() {
               <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead>
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Acción</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Entidad</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Usuario</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Hash</th>
+                    <th className="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Fecha</th>
+                    <th className="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acción</th>
+                    <th className="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Entidad</th>
+                    <th className="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Usuario</th>
+                    <th className="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Hash</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {registros.map((registro) => (
-                    <tr key={registro.id} className="hover:bg-gray-50">
-                      <td className="px-3 py-2 text-xs">{formatDate(registro.timestamp)}</td>
-                      <td className="px-3 py-2">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                    <tr key={registro.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-2 sm:px-3 py-2 text-xs text-gray-900 dark:text-white">{formatDate(registro.timestamp)}</td>
+                      <td className="px-2 sm:px-3 py-2">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                           {registro.accion}
                         </span>
                       </td>
-                      <td className="px-3 py-2">
-                        <span className="text-gray-900">{registro.entidad}</span>
-                        <span className="text-gray-400 text-xs block font-mono">{registro.entidadId.substring(0, 8)}...</span>
+                      <td className="px-2 sm:px-3 py-2">
+                        <span className="text-gray-900 dark:text-white">{registro.entidad}</span>
+                        <span className="text-gray-400 dark:text-gray-500 text-xs block font-mono truncate max-w-[80px] sm:max-w-none">{registro.entidadId.substring(0, 8)}...</span>
                       </td>
-                      <td className="px-3 py-2 text-gray-600">
+                      <td className="px-2 sm:px-3 py-2 text-gray-600 dark:text-gray-400">
                         {registro.usuario?.nombre || 'Sistema'}
                       </td>
-                      <td className="px-3 py-2">
-                        <code className="text-xs bg-gray-100 px-1 rounded font-mono">
+                      <td className="px-2 sm:px-3 py-2">
+                        <code className="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded font-mono text-gray-800 dark:text-gray-200 truncate max-w-[80px] sm:max-w-[120px] inline-block">
                           {registro.hashActual.substring(0, 12)}...
                         </code>
                       </td>

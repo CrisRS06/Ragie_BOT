@@ -266,19 +266,19 @@ export default function ReporteQuincenalPage() {
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
                         Artículo
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
                         Entradas
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
                         Salidas
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
                         Ajustes
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
                         Neto
                       </th>
                     </tr>
@@ -286,7 +286,7 @@ export default function ReporteQuincenalPage() {
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {data.articulosResumen.map((art, idx) => (
                       <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="px-6 py-4">
+                        <td className="px-3 sm:px-6 py-3 sm:py-4">
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
                             {art.nombre}
                           </div>
@@ -294,16 +294,16 @@ export default function ReporteQuincenalPage() {
                             {art.sku} - {art.unidadMedida}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-right text-sm text-green-600 dark:text-green-400">
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-right text-sm text-green-600 dark:text-green-400">
                           +{art.entradas}
                         </td>
-                        <td className="px-6 py-4 text-right text-sm text-red-600 dark:text-red-400">
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-right text-sm text-red-600 dark:text-red-400">
                           -{art.salidas}
                         </td>
-                        <td className="px-6 py-4 text-right text-sm text-yellow-600 dark:text-yellow-400">
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-right text-sm text-yellow-600 dark:text-yellow-400">
                           {art.ajustes >= 0 ? '+' : ''}{art.ajustes}
                         </td>
-                        <td className="px-6 py-4 text-right text-sm font-medium">
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-right text-sm font-medium">
                           <span
                             className={
                               art.neto >= 0
@@ -332,22 +332,22 @@ export default function ReporteQuincenalPage() {
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
                         Fecha
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
                         Tipo
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
                         Artículo
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
                         Cantidad
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
                         Lote
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
+                      <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
                         Usuario
                       </th>
                     </tr>
@@ -355,7 +355,7 @@ export default function ReporteQuincenalPage() {
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {data.movimientosDetalle.map((mov) => (
                       <tr key={mov.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-900 dark:text-white">
                           {new Date(mov.fecha).toLocaleDateString('es-CR', {
                             day: '2-digit',
                             month: 'short',
@@ -363,7 +363,7 @@ export default function ReporteQuincenalPage() {
                             minute: '2-digit',
                           })}
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-3 sm:px-6 py-3 sm:py-4">
                           <span
                             className={`px-2 py-1 text-xs font-medium rounded-full ${
                               tipoColors[mov.tipo] || 'bg-gray-100 text-gray-800'
@@ -372,10 +372,10 @@ export default function ReporteQuincenalPage() {
                             {tipoLabels[mov.tipo] || mov.tipo}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-900 dark:text-white">
                           {mov.articulo}
                         </td>
-                        <td className="px-6 py-4 text-right text-sm font-medium">
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-right text-sm font-medium">
                           <span
                             className={
                               mov.cantidad > 0
@@ -386,10 +386,10 @@ export default function ReporteQuincenalPage() {
                             {mov.cantidad > 0 ? '+' : ''}{mov.cantidad}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-500 dark:text-gray-400">
                           {mov.lote}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-500 dark:text-gray-400">
                           {mov.usuario}
                         </td>
                       </tr>

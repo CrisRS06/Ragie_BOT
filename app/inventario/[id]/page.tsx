@@ -144,8 +144,8 @@ export default function DetalleInventarioPage({ params }: { params: Promise<{ id
         <Link href="/inventario" className="text-blue-600 hover:underline text-sm mb-2 inline-block">
           ← Volver al inventario
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">{articulo.nombre}</h1>
-        <p className="text-gray-600">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{articulo.nombre}</h1>
+        <p className="text-gray-600 dark:text-gray-400">
           <span className="font-mono">{articulo.sku}</span> · {articulo.unidadMedida}
         </p>
       </div>
@@ -170,7 +170,7 @@ export default function DetalleInventarioPage({ params }: { params: Promise<{ id
 
       {/* Estadísticas */}
       {estadisticas && (
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
           <Card>
             <CardContent className="pt-4">
               <p className={`text-2xl font-bold ${estadisticas.alertaStockBajo ? 'text-orange-600' : 'text-gray-900'}`}>
@@ -264,50 +264,50 @@ export default function DetalleInventarioPage({ params }: { params: Promise<{ id
               <table className="min-w-full divide-y divide-gray-200">
                 <thead>
                   <tr>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lote</th>
-                    <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Disponible</th>
-                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Consumido</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ingreso</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vencimiento</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ubicación</th>
+                    <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">#</th>
+                    <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Lote</th>
+                    <th className="px-2 sm:px-3 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Disponible</th>
+                    <th className="px-2 sm:px-3 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Consumido</th>
+                    <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ingreso</th>
+                    <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Vencimiento</th>
+                    <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado</th>
+                    <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ubicación</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {lotes.map((lote) => (
                     <tr
                       key={lote.id}
-                      className={`${lote.agotado ? 'bg-gray-50 text-gray-400' : 'hover:bg-gray-50'}`}
+                      className={`${lote.agotado ? 'bg-gray-50 dark:bg-gray-800/50 text-gray-400' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                     >
-                      <td className="px-3 py-3 text-sm">
+                      <td className="px-2 sm:px-3 py-2 sm:py-3 text-sm">
                         {ordenarPor === 'peps' && !lote.agotado && (
-                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-800 text-xs font-bold">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-bold">
                             {lote.ordenPEPS}
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-sm font-mono">{lote.numeroLote}</td>
-                      <td className="px-3 py-3 text-right">
-                        <span className={`text-sm font-bold ${lote.agotado ? 'text-gray-400' : 'text-gray-900'}`}>
+                      <td className="px-2 sm:px-3 py-2 sm:py-3 text-sm font-mono text-gray-900 dark:text-white">{lote.numeroLote}</td>
+                      <td className="px-2 sm:px-3 py-2 sm:py-3 text-right">
+                        <span className={`text-sm font-bold ${lote.agotado ? 'text-gray-400' : 'text-gray-900 dark:text-white'}`}>
                           {lote.cantidadDisponible}
                         </span>
-                        <span className="text-xs text-gray-500">/{lote.cantidadInicial}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">/{lote.cantidadInicial}</span>
                       </td>
-                      <td className="px-3 py-3">
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                      <td className="px-2 sm:px-3 py-2 sm:py-3">
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                           <div
                             className={`h-2 rounded-full ${lote.agotado ? 'bg-gray-400' : 'bg-blue-600'}`}
                             style={{ width: `${lote.porcentajeConsumido}%` }}
                           />
                         </div>
-                        <p className="text-xs text-center text-gray-500 mt-1">{lote.porcentajeConsumido}%</p>
+                        <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-1">{lote.porcentajeConsumido}%</p>
                       </td>
-                      <td className="px-3 py-3 text-sm">{formatDate(lote.fechaIngresoTs)}</td>
-                      <td className="px-3 py-3 text-sm">{formatDate(lote.fechaVencimiento)}</td>
-                      <td className="px-3 py-3">
+                      <td className="px-2 sm:px-3 py-2 sm:py-3 text-sm text-gray-900 dark:text-white">{formatDate(lote.fechaIngresoTs)}</td>
+                      <td className="px-2 sm:px-3 py-2 sm:py-3 text-sm text-gray-900 dark:text-white">{formatDate(lote.fechaVencimiento)}</td>
+                      <td className="px-2 sm:px-3 py-2 sm:py-3">
                         {lote.agotado ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
                             Agotado
                           </span>
                         ) : (
@@ -324,7 +324,7 @@ export default function DetalleInventarioPage({ params }: { params: Promise<{ id
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-sm text-gray-600">{lote.ubicacion || '-'}</td>
+                      <td className="px-2 sm:px-3 py-2 sm:py-3 text-sm text-gray-600 dark:text-gray-400">{lote.ubicacion || '-'}</td>
                     </tr>
                   ))}
                 </tbody>

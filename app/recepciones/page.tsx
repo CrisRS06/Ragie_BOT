@@ -120,15 +120,15 @@ export default function RecepcionesPage() {
               Registro de entradas de mercancía al inventario
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Link href="/recepciones/nueva-multi">
-              <Button variant="outline">
+              <Button variant="outline" className="w-full sm:w-auto">
                 <Layers className="w-4 h-4 mr-2" />
                 Multi-Producto
               </Button>
             </Link>
             <Link href="/recepciones/nueva">
-              <Button>
+              <Button className="w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />
                 Nueva Recepción
               </Button>
@@ -212,25 +212,25 @@ export default function RecepcionesPage() {
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Fecha
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Artículo
                   </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Cantidad
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Lote
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Proveedor
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Vencimiento
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Usuario
                   </th>
                 </tr>
@@ -238,14 +238,14 @@ export default function RecepcionesPage() {
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center">
+                    <td colSpan={7} className="px-3 sm:px-6 py-12 text-center">
                       <RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" />
                       <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Cargando...</p>
                     </td>
                   </tr>
                 ) : recepcionesFiltradas.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center">
+                    <td colSpan={7} className="px-3 sm:px-6 py-12 text-center">
                       <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                       <p className="text-gray-600 dark:text-gray-400">No se encontraron recepciones</p>
                     </td>
@@ -253,7 +253,7 @@ export default function RecepcionesPage() {
                 ) : (
                   recepcionesFiltradas.map((recepcion) => (
                     <tr key={recepcion.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                         {new Date(recepcion.timestamp).toLocaleDateString('es-CR', {
                           day: '2-digit',
                           month: 'short',
@@ -262,7 +262,7 @@ export default function RecepcionesPage() {
                           minute: '2-digit',
                         })}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4">
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
                           {recepcion.articulo.nombre}
                         </div>
@@ -270,18 +270,18 @@ export default function RecepcionesPage() {
                           {recepcion.articulo.sku}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-right">
                         <span className="text-sm font-medium text-green-600 dark:text-green-400">
                           +{recepcion.cantidad} {recepcion.articulo.unidadMedida}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                         {recepcion.lote?.codigoLote || recepcion.lote?.numeroLote || '-'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                         {recepcion.lote?.proveedor || '-'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm">
                         {recepcion.lote?.fechaVencimiento ? (
                           <span className={
                             new Date(recepcion.lote.fechaVencimiento) < new Date()
@@ -294,7 +294,7 @@ export default function RecepcionesPage() {
                           '-'
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                         {recepcion.usuario?.nombre || '-'}
                       </td>
                     </tr>

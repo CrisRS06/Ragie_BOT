@@ -196,7 +196,7 @@ export function Navbar() {
               </button>
 
               {adminMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                <div className="absolute right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
                   {adminSubNavigation.map((item) => {
                     const SubIcon = item.icon;
                     const isSubActive = pathname === item.href;

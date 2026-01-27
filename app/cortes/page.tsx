@@ -89,8 +89,8 @@ export default function CortesPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Cortes de Existencias</h1>
-          <p className="text-gray-600">Historial de snapshots de inventario con hash inmutable</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Cortes de Existencias</h1>
+          <p className="text-gray-600 dark:text-gray-400">Historial de snapshots de inventario con hash inmutable</p>
         </div>
         <Link href="/cortes/nuevo">
           <Button>Nuevo Corte</Button>
@@ -142,48 +142,48 @@ export default function CortesPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead>
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Motivo</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Artículos</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Lotes</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hash</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Fecha</th>
+                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tipo</th>
+                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Motivo</th>
+                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Artículos</th>
+                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Lotes</th>
+                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Hash</th>
+                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
                   {cortes.map((corte) => (
-                    <tr key={corte.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm">{formatDate(corte.timestamp)}</td>
-                      <td className="px-4 py-3">
+                    <tr key={corte.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-sm text-gray-900 dark:text-white">{formatDate(corte.timestamp)}</td>
+                      <td className="px-3 sm:px-4 py-2 sm:py-3">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getTipoColor(corte.tipo)}`}>
                           {getTipoLabel(corte.tipo)}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate">
                         {corte.motivo || '-'}
                       </td>
-                      <td className="px-4 py-3 text-center text-sm font-medium">{corte.totalArticulos}</td>
-                      <td className="px-4 py-3 text-center text-sm font-medium">{corte.totalLotes}</td>
-                      <td className="px-4 py-3">
-                        <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-center text-sm font-medium text-gray-900 dark:text-white">{corte.totalArticulos}</td>
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-center text-sm font-medium text-gray-900 dark:text-white">{corte.totalLotes}</td>
+                      <td className="px-3 sm:px-4 py-2 sm:py-3">
+                        <code className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-mono text-gray-800 dark:text-gray-200 truncate max-w-[100px] sm:max-w-[120px] inline-block">
                           {corte.hashSnapshot.substring(0, 12)}...
                         </code>
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-center">
                         <div className="flex justify-center gap-2">
                           <Link
                             href={`/cortes/${corte.id}`}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
+                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
                           >
                             Ver
                           </Link>
                           <a
                             href={`/api/cortes/${corte.id}/csv`}
-                            className="text-green-600 hover:text-green-800 text-sm"
+                            className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 text-sm"
                             download
                           >
                             CSV

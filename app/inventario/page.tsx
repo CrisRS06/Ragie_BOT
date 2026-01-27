@@ -75,8 +75,8 @@ export default function InventarioPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Inventario</h1>
-          <p className="text-gray-600">Vista general del stock por artículo</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Inventario</h1>
+          <p className="text-gray-600 dark:text-gray-400">Vista general del stock por artículo</p>
         </div>
         <div className="flex gap-2">
           <Link href="/recepciones/nueva">
@@ -174,75 +174,75 @@ export default function InventarioPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead>
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Artículo</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Stock</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Lotes</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">SKU</th>
+                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Artículo</th>
+                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Stock</th>
+                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Lotes</th>
+                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado</th>
+                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
                   {inventario.map((articulo) => (
-                    <tr key={articulo.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-mono">{articulo.sku}</td>
-                      <td className="px-4 py-3">
+                    <tr key={articulo.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-sm font-mono text-gray-900 dark:text-white">{articulo.sku}</td>
+                      <td className="px-3 sm:px-4 py-2 sm:py-3">
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{articulo.nombre}</p>
-                          <p className="text-xs text-gray-500 truncate max-w-xs">{articulo.descripcionSIGAF}</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{articulo.nombre}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">{articulo.descripcionSIGAF}</p>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-right">
                         <span
                           className={`text-sm font-bold ${
                             articulo.stockTotal === 0
-                              ? 'text-gray-400'
+                              ? 'text-gray-400 dark:text-gray-500'
                               : articulo.alertaStockBajo
-                              ? 'text-orange-600'
-                              : 'text-gray-900'
+                              ? 'text-orange-600 dark:text-orange-400'
+                              : 'text-gray-900 dark:text-white'
                           }`}
                         >
                           {articulo.stockTotal}
                         </span>
-                        <span className="text-xs text-gray-500 ml-1">{articulo.unidadMedida}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">{articulo.unidadMedida}</span>
                       </td>
-                      <td className="px-4 py-3 text-center text-sm">{articulo.totalLotes}</td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex justify-center gap-1">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-center text-sm text-gray-900 dark:text-white">{articulo.totalLotes}</td>
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-center">
+                        <div className="flex justify-center gap-1 flex-wrap">
                           {articulo.lotesVencidos > 0 && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
                               {articulo.lotesVencidos} vencidos
                             </span>
                           )}
                           {articulo.lotesProximosAVencer > 0 && articulo.lotesVencidos === 0 && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
                               {articulo.lotesProximosAVencer} por vencer
                             </span>
                           )}
                           {articulo.alertaStockBajo && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
                               Stock bajo
                             </span>
                           )}
                           {!articulo.alertaVencimiento && !articulo.alertaStockBajo && articulo.stockTotal > 0 && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                               OK
                             </span>
                           )}
                           {articulo.stockTotal === 0 && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
                               Sin stock
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-center">
                         <Link
                           href={`/inventario/${articulo.id}`}
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
                         >
                           Ver Lotes
                         </Link>
