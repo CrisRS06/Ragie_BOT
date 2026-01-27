@@ -1,29 +1,22 @@
-# CLAUDE.md - Guía para Claude Code
+# CLAUDE.md - Guia para Claude Code
 
-## Descripción del Proyecto
+## Descripcion del Proyecto
 
-Sistema de Inventario PEPS (Primero en Entrar, Primero en Salir) para gestión de bodega en contrato público de Costa Rica. Aplicación Next.js 16 con Prisma ORM y PostgreSQL.
+Sistema de Inventario PEPS (Primero en Entrar, Primero en Salir) para gestion de bodega en contrato publico de Costa Rica. Aplicacion Next.js 16 con Supabase (PostgreSQL + Auth).
 
-## Stack Tecnológico
+## Stack Tecnologico
 
 - **Frontend**: Next.js 16, React 19, TailwindCSS
 - **Backend**: Next.js API Routes (App Router)
-- **Base de datos**: PostgreSQL con Prisma ORM
-- **Autenticación**: JWT con jose
-- **Deployment**: Railway (Dockerfile)
+- **Base de datos**: Supabase PostgreSQL
+- **Autenticacion**: Supabase Auth
+- **Deployment**: Vercel
 
-## Comandos Útiles
+## Comandos Utiles
 
 ```bash
 # Desarrollo
 npm run dev
-
-# Base de datos
-npm run db:generate    # Generar Prisma Client
-npm run db:push        # Push schema (dev)
-npm run db:migrate     # Crear migración
-npm run db:studio      # Prisma Studio
-npm run db:seed        # Poblar datos de prueba
 
 # Testing
 npm run test           # Vitest
@@ -31,6 +24,9 @@ npm run test:e2e       # Playwright
 
 # Build
 npm run build
+
+# Type checking
+npm run type-check
 ```
 
 ## Estructura del Proyecto
@@ -38,102 +34,136 @@ npm run build
 ```
 app/
 ├── api/              # API Routes
-│   ├── auth/         # Login, logout, me
-│   ├── articulos/    # CRUD artículos
+│   ├── auth/         # Login, logout, me (Supabase Auth)
+│   ├── articulos/    # CRUD articulos
 │   ├── recepciones/  # Entradas de inventario
 │   ├── despachos/    # Salidas PEPS
-│   ├── health/       # Health check (verifica BD)
+│   ├── health/       # Health check
 │   └── ...
-├── admin/            # Páginas de administración
-├── login/            # Página de login
+├── admin/            # Paginas de administracion
+├── login/            # Pagina de login
+│   └── actions.ts    # Server Actions para auth
 └── ...
 
 lib/
-├── prisma.ts         # Cliente Prisma singleton
-├── auth.ts           # Utilidades de autenticación
-└── services/         # Lógica de negocio
+└── supabase/         # Clientes Supabase
+    ├── client.ts     # Cliente browser
+    ├── server.ts     # Cliente server-side
+    ├── admin.ts      # Cliente admin (service role)
+    ├── auth.ts       # Utilidades de autenticacion
+    └── database.types.ts  # Tipos TypeScript
 
-prisma/
-├── schema.prisma     # Schema de la BD
-├── migrations/       # Migraciones SQL
-└── seed.ts           # Datos de prueba
-
-scripts/
-└── start.sh          # Script de inicio para Railway
+supabase/
+└── migrations/       # SQL migrations
+    ├── 001_initial_schema.sql
+    ├── 002_peps_functions.sql
+    └── 003_rls_policies.sql
 ```
 
-## Railway Deployment
-
-### Configuración Crítica
-
-El proyecto usa Dockerfile para deployment en Railway. **Información importante:**
-
-1. **Private networking NO está disponible durante build/preDeployCommand**
-   - `postgres.railway.internal` solo resuelve en RUNTIME
-   - Las migraciones deben ejecutarse al inicio del contenedor, NO en preDeployCommand
-
-2. **Solución implementada**: `scripts/start.sh` con retry loop
-   ```bash
-   until node node_modules/prisma/build/index.js migrate deploy; do
-     sleep 2
-   done
-   exec node server.js
-   ```
-
-3. **Health check** en `/api/health` verifica conexión a BD antes de reportar healthy
+## Supabase Configuration
 
 ### Variables de Entorno Requeridas
 
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://tzsdxujlfcuksqcyrvay.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key-from-dashboard>
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key-from-dashboard>
 ```
-DATABASE_URL=postgresql://...@postgres.railway.internal:5432/railway
-JWT_SECRET=<secreto-seguro>
-NEXTAUTH_SECRET=<secreto-seguro>
-NEXTAUTH_URL=https://tu-app.up.railway.app
-```
 
-### Archivos de Configuración
+### Proyecto Supabase
 
-- `railway.toml` - Configuración de Railway
-- `Dockerfile` - Build multi-stage optimizado para Next.js standalone
+- **Project ID**: `tzsdxujlfcuksqcyrvay`
+- **Region**: Default
 
-### Troubleshooting Railway
+### Aplicar Migraciones
 
-| Problema | Causa | Solución |
-|----------|-------|----------|
-| `Can't reach postgres.railway.internal` en preDeployCommand | Private network no disponible | Usar retry loop en startCommand |
-| `Can't reach postgres.railway.internal` en startup | Red aún no lista | El retry loop espera automáticamente |
-| Health check falla | BD no conectada | Verificar que Postgres esté corriendo |
+Las migraciones SQL estan en `supabase/migrations/`. Para aplicarlas:
 
-## Lógica de Negocio PEPS
+1. Ve al Dashboard de Supabase > SQL Editor
+2. Ejecuta cada archivo en orden:
+   - `001_initial_schema.sql` - Tablas base
+   - `002_peps_functions.sql` - Funciones PEPS
+   - `003_rls_policies.sql` - Politicas RLS
+
+### Tablas Principales
+
+| Tabla | Descripcion |
+|-------|-------------|
+| `articulos` | Catalogo de productos |
+| `lotes` | Lotes con fecha de ingreso para PEPS |
+| `movimientos` | Entradas, salidas, ajustes |
+| `audit_log` | Bitacora inmutable |
+
+## Logica de Negocio PEPS
 
 ### Despachos (Salidas)
 
-Los despachos usan método PEPS estricto:
-1. Se ordenan lotes por `fechaIngresoTs` ASC
-2. Se descuenta del lote más antiguo primero
-3. Si no alcanza, continúa con el siguiente lote
-4. Cada movimiento registra el `costoUnitarioPEPS` del lote
+Los despachos usan funcion PostgreSQL `dispatch_peps()`:
+1. Se ordenan lotes por `fecha_ingreso` ASC
+2. Se descuenta del lote mas antiguo primero
+3. Si no alcanza, continua con el siguiente lote
+4. Registra automaticamente en audit_log
 
 ### Recepciones (Entradas)
 
-Las recepciones crean:
-1. Un `DocumentoRecepcion` (encabezado)
-2. Múltiples `DetalleRecepcion` (líneas)
-3. Un `Lote` por cada línea
-4. Un `Movimiento` tipo ENTRADA por cada lote
+Las recepciones usan funcion PostgreSQL `receive_inventory()`:
+1. Crea un nuevo lote con cantidad y fecha de vencimiento
+2. Crea movimiento tipo ENTRADA
+3. Registra en audit_log
 
-## Usuarios por Defecto (Seed)
+## Usuarios y Autenticacion
+
+Los usuarios se gestionan via Supabase Auth. El rol se almacena en `user_metadata`.
+
+### Crear Usuario Admin (via API)
+
+```bash
+# Sin body = crea admin por defecto
+curl -X POST https://tu-app.vercel.app/api/seed
+
+# Con body = crea usuario personalizado (requiere x-admin-secret header)
+curl -X POST https://tu-app.vercel.app/api/seed \
+  -H "Content-Type: application/json" \
+  -H "x-admin-secret: TU_SECRET" \
+  -d '{"email":"user@example.com","password":"Pass123!","nombre":"Usuario","rol":"OPERADOR"}'
+```
+
+### Credenciales por Defecto
 
 ```
-admin@sistema.local / Admin123!  (ADMINISTRADOR_CONTRATISTA)
-operador@sistema.local / Operador123!  (OPERADOR_BODEGA)
-fiscal@sistema.local / Fiscal123!  (FISCALIZADOR_EXTERNO)
-auditor@sistema.local / Auditor123!  (AUDITOR)
+admin@bodegaje.example.com / Admin2024Secure (ADMINISTRADOR)
+```
+
+### Roles Disponibles
+
+- `ADMINISTRADOR` - Acceso completo
+- `OPERADOR` - Operaciones de bodega
+- `AUDITOR` - Solo lectura + auditoria
+
+## Vercel Deployment
+
+### Configuracion
+
+El proyecto usa configuracion estandar de Vercel para Next.js.
+
+1. Conectar repositorio a Vercel
+2. Configurar variables de entorno:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+
+### vercel.json
+
+```json
+{
+  "framework": "nextjs"
+}
 ```
 
 ## Notas para Desarrollo
 
-- El proyecto usa `output: "standalone"` en Next.js para optimizar Docker
-- Prisma está en devDependencies pero se copia completo en el Dockerfile
-- Las migraciones se generan con `npx prisma migrate dev --name <nombre>`
-- Nunca usar `prisma db push` en producción, solo `prisma migrate deploy`
+- Ya no se usa Prisma - todo via Supabase client
+- Auth se maneja con `@supabase/ssr` para SSR correcto
+- Las funciones PEPS estan en PostgreSQL para garantizar atomicidad
+- RLS esta habilitado - usar `supabaseAdmin` para bypass cuando necesario
+- El middleware refresh automaticamente tokens expirados

@@ -1,228 +1,182 @@
 /**
  * API: /api/articulos
- * GET - Lista todos los artículos activos del sistema
- * POST - Crear nuevo artículo
+ * GET - Lista todos los articulos activos del sistema
+ * POST - Crear nuevo articulo
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUserId } from '@/lib/auth';
-import { registrarBitacora } from '@/lib/services/bitacora.service';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { z } from 'zod'
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
-// Schema de validación para crear artículo
+// Schema de validacion para crear articulo
 const createArticuloSchema = z.object({
   sku: z.string().min(3, 'SKU debe tener al menos 3 caracteres').max(50),
   nombre: z.string().min(3, 'Nombre debe tener al menos 3 caracteres').max(200),
-  descripcionSIGAF: z.string().min(10, 'Descripción SIGAF debe tener al menos 10 caracteres').max(500),
+  descripcion_sigaf: z.string().min(10, 'Descripcion SIGAF debe tener al menos 10 caracteres').max(500),
   descripcion: z.string().max(500).optional().nullable(),
-  unidadMedida: z.enum(['UNIDAD', 'KG', 'LITRO', 'METRO', 'CAJA', 'PAQUETE', 'BOLSA', 'ROLLO', 'GALON', 'LIBRA']),
-  stockMinimo: z.number().min(0).optional().nullable(),
-  stockMaximo: z.number().min(0).optional().nullable(),
-  codigoSIGAF: z.string().max(50).optional().nullable(),
-  requiereVencimiento: z.boolean().optional(),
-  // FASE 1: Campos adicionales PANI
-  codigoBarras: z.string().max(50).optional().nullable(),
-  marca: z.string().max(100).optional().nullable(),
-  ivaPercent: z.number().min(0).max(1).optional().default(0.13),
-  observaciones: z.string().max(2000).optional().nullable(),
-  // FASE 2: Campos adicionales según requisitos de Bodega en Custodia
-  codigoPANI: z.string().max(50).optional().nullable(),
-  codigoSICOP: z.string().max(50).optional().nullable(),
-  codigoSICOPL: z.string().max(50).optional().nullable(),
-  categoria: z.string().max(100).optional().nullable(),
-  precio: z.number().min(0).optional().nullable(),
-  costoReferencia: z.number().min(0).optional().nullable(),
-});
+  unidad_medida: z.string().min(1, 'Unidad de medida es requerida'),
+  stock_minimo: z.number().min(0).optional().nullable(),
+  iva_percent: z.number().min(0).max(1).optional().default(0.13),
+})
 
 export async function GET() {
   try {
-    const articulos = await prisma.articulo.findMany({
-      where: {
-        activo: true,
-      },
-      select: {
-        id: true,
-        sku: true,
-        nombre: true,
-        descripcionSIGAF: true,
-        unidadMedida: true,
-        stockMinimo: true,
-        stockMaximo: true,
-        // FASE 1: Campos adicionales PANI
-        codigoBarras: true,
-        marca: true,
-        ivaPercent: true,
-        observaciones: true,
-        // FASE 2: Campos adicionales Bodega en Custodia
-        codigoPANI: true,
-        codigoSICOP: true,
-        codigoSICOPL: true,
-        categoria: true,
-        precio: true,
-        costoReferencia: true,
-        _count: {
-          select: {
-            lotes: {
-              where: {
-                activo: true,
-                cantidadDisponible: { gt: 0 },
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        nombre: 'asc',
-      },
-    });
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // Calcular stock total por artículo
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
+
+    // Obtener articulos
+    const { data: articulos, error } = await supabase
+      .from('articulos')
+      .select('*')
+      .eq('activo', true)
+      .order('nombre')
+
+    if (error) {
+      console.error('Error al obtener articulos:', error)
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 }
+      )
+    }
+
+    // Calcular stock total por articulo
     const articulosConStock = await Promise.all(
-      articulos.map(async (articulo) => {
-        const stockTotal = await prisma.lote.aggregate({
-          where: {
-            articuloId: articulo.id,
-            activo: true,
-          },
-          _sum: {
-            cantidadDisponible: true,
-          },
-        });
+      (articulos || []).map(async (articulo) => {
+        const { data: stockData } = await supabase
+          .from('lotes')
+          .select('cantidad_disponible')
+          .eq('articulo_id', articulo.id)
+          .eq('activo', true)
+          .gt('cantidad_disponible', 0)
+
+        const stockTotal = stockData?.reduce((sum, lote) => sum + Number(lote.cantidad_disponible), 0) || 0
+        const lotesActivos = stockData?.length || 0
 
         return {
           ...articulo,
-          stockTotal: stockTotal._sum.cantidadDisponible || 0,
-          lotesActivos: articulo._count.lotes,
-        };
+          stockTotal,
+          lotesActivos,
+        }
       })
-    );
+    )
 
     return NextResponse.json({
       success: true,
       data: articulosConStock,
       total: articulosConStock.length,
-    });
+    })
   } catch (error) {
-    console.error('Error al obtener artículos:', error);
-
+    console.error('Error al obtener articulos:', error)
     return NextResponse.json(
       {
         success: false,
-        error: 'Error al obtener artículos',
+        error: 'Error al obtener articulos',
         message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
-    );
+    )
   }
 }
 
 /**
- * POST /api/articulos - Crear nuevo artículo
+ * POST /api/articulos - Crear nuevo articulo
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
 
     // Validar datos
-    const validacion = createArticuloSchema.safeParse(body);
+    const validacion = createArticuloSchema.safeParse(body)
     if (!validacion.success) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Datos inválidos',
+          error: 'Datos invalidos',
           errors: validacion.error.format(),
         },
         { status: 400 }
-      );
+      )
     }
 
-    const data = validacion.data;
-    const usuarioId = await getCurrentUserId();
-
-    if (!usuarioId) {
-      return NextResponse.json(
-        { success: false, error: 'No autenticado' },
-        { status: 401 }
-      );
-    }
+    const data = validacion.data
 
     // Verificar que el SKU no exista
-    const skuExistente = await prisma.articulo.findUnique({
-      where: { sku: data.sku },
-    });
+    const { data: existente } = await supabase
+      .from('articulos')
+      .select('id')
+      .eq('sku', data.sku)
+      .single()
 
-    if (skuExistente) {
+    if (existente) {
       return NextResponse.json(
-        { success: false, error: 'Ya existe un artículo con este SKU' },
+        { success: false, error: 'Ya existe un articulo con este SKU' },
         { status: 400 }
-      );
+      )
     }
 
-    // Validar que stockMaximo >= stockMinimo si ambos están definidos
-    if (
-      data.stockMinimo !== null &&
-      data.stockMinimo !== undefined &&
-      data.stockMaximo !== null &&
-      data.stockMaximo !== undefined &&
-      data.stockMaximo < data.stockMinimo
-    ) {
-      return NextResponse.json(
-        { success: false, error: 'Stock máximo no puede ser menor al stock mínimo' },
-        { status: 400 }
-      );
-    }
-
-    // Crear artículo
-    const articulo = await prisma.articulo.create({
-      data: {
+    // Crear articulo usando admin client (bypass RLS)
+    const { data: articulo, error } = await supabaseAdmin
+      .from('articulos')
+      .insert({
         sku: data.sku,
         nombre: data.nombre,
         descripcion: data.descripcion,
-        descripcionSIGAF: data.descripcionSIGAF,
-        codigoSIGAF: data.codigoSIGAF,
-        unidadMedida: data.unidadMedida,
-        stockMinimo: data.stockMinimo,
-        stockMaximo: data.stockMaximo,
-        requiereVencimiento: data.requiereVencimiento ?? true,
+        descripcion_sigaf: data.descripcion_sigaf,
+        unidad_medida: data.unidad_medida,
+        stock_minimo: data.stock_minimo,
+        iva_percent: data.iva_percent,
         activo: true,
-        // FASE 1: Campos adicionales PANI
-        codigoBarras: data.codigoBarras,
-        marca: data.marca,
-        ivaPercent: data.ivaPercent ?? 0.13,
-        observaciones: data.observaciones,
-        // FASE 2: Campos adicionales Bodega en Custodia
-        codigoPANI: data.codigoPANI,
-        codigoSICOP: data.codigoSICOP,
-        codigoSICOPL: data.codigoSICOPL,
-        categoria: data.categoria,
-        precio: data.precio,
-        costoReferencia: data.costoReferencia,
-      },
-    });
+      })
+      .select()
+      .single()
 
-    // Registrar en bitácora
-    await registrarBitacora({
-      usuarioId,
+    if (error) {
+      console.error('Error al crear articulo:', error)
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 }
+      )
+    }
+
+    // Registrar en audit_log
+    await supabaseAdmin.from('audit_log').insert({
+      usuario_id: user.id,
       accion: 'CREAR_ARTICULO',
-      entidad: 'Articulo',
-      entidadId: articulo.id,
-      estadoAnterior: null,
-      estadoNuevo: articulo,
-    });
+      entidad: 'articulos',
+      entidad_id: articulo.id,
+      datos_nuevos: articulo,
+    })
 
     return NextResponse.json({
       success: true,
-      message: 'Artículo creado exitosamente',
+      message: 'Articulo creado exitosamente',
       data: articulo,
-    });
+    })
   } catch (error) {
-    console.error('Error al crear artículo:', error);
+    console.error('Error al crear articulo:', error)
     return NextResponse.json(
-      { success: false, error: 'Error al crear artículo' },
+      { success: false, error: 'Error al crear articulo' },
       { status: 500 }
-    );
+    )
   }
 }

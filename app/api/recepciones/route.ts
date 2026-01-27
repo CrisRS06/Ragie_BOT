@@ -1,162 +1,185 @@
 /**
  * API: /api/recepciones
  * GET - Listar recepciones
- * POST - Crear una nueva recepción de mercancía
+ * POST - Crear una nueva recepcion de mercancia
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { createRecepcionSchema } from '@/lib/validations/recepcion.schema';
-import { ejecutarEntrada } from '@/lib/services/peps.service';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { z } from 'zod'
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
+
+const createRecepcionSchema = z.object({
+  articuloId: z.string().uuid('ID de articulo invalido'),
+  cantidad: z.number().positive('La cantidad debe ser mayor a 0'),
+  fechaVencimiento: z.string().refine((date) => !isNaN(Date.parse(date)), {
+    message: 'Fecha de vencimiento invalida',
+  }),
+  costoUnitario: z.number().min(0).optional(),
+  numeroLote: z.string().optional(),
+  proveedor: z.string().optional(),
+  documentoReferencia: z.string().optional(),
+})
 
 /**
  * GET /api/recepciones - Listar recepciones (entradas)
  */
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const limite = parseInt(searchParams.get('limite') || '20');
-    const offset = parseInt(searchParams.get('offset') || '0');
-    const articuloId = searchParams.get('articuloId');
-    const fechaDesde = searchParams.get('fechaDesde');
-    const fechaHasta = searchParams.get('fechaHasta');
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // Construir filtros
-    const where: Record<string, unknown> = {
-      tipo: 'ENTRADA',
-      anulado: false,
-    };
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
+
+    const searchParams = request.nextUrl.searchParams
+    const limite = parseInt(searchParams.get('limite') || '20')
+    const offset = parseInt(searchParams.get('offset') || '0')
+    const articuloId = searchParams.get('articuloId')
+
+    // Query base
+    let query = supabase
+      .from('movimientos')
+      .select(`
+        *,
+        articulos (sku, nombre, unidad_medida),
+        lotes (id, numero_lote, cantidad_inicial, cantidad_disponible, fecha_vencimiento, proveedor)
+      `, { count: 'exact' })
+      .eq('tipo', 'ENTRADA')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limite - 1)
 
     if (articuloId) {
-      where.articuloId = articuloId;
+      query = query.eq('articulo_id', articuloId)
     }
 
-    if (fechaDesde || fechaHasta) {
-      where.timestamp = {};
-      if (fechaDesde) {
-        (where.timestamp as Record<string, Date>).gte = new Date(fechaDesde);
-      }
-      if (fechaHasta) {
-        const fechaFin = new Date(fechaHasta);
-        fechaFin.setHours(23, 59, 59, 999);
-        (where.timestamp as Record<string, Date>).lte = fechaFin;
-      }
+    const { data: movimientos, error, count } = await query
+
+    if (error) {
+      console.error('Error al listar recepciones:', error)
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 }
+      )
     }
-
-    // Obtener movimientos de entrada (recepciones)
-    const movimientos = await prisma.movimiento.findMany({
-      where,
-      include: {
-        articulo: {
-          select: {
-            sku: true,
-            nombre: true,
-            unidadMedida: true,
-          },
-        },
-        lote: {
-          select: {
-            id: true,
-            numeroLote: true,
-            cantidadInicial: true,
-            cantidadDisponible: true,
-            fechaVencimiento: true,
-            proveedor: true,
-          },
-        },
-        usuario: {
-          select: {
-            nombre: true,
-          },
-        },
-      },
-      orderBy: { timestamp: 'desc' },
-      take: limite,
-      skip: offset,
-    });
-
-    const total = await prisma.movimiento.count({ where });
 
     return NextResponse.json({
       success: true,
       data: movimientos,
-      total,
+      total: count || 0,
       limite,
       offset,
-    });
+    })
   } catch (error) {
-    console.error('Error al listar recepciones:', error);
+    console.error('Error al listar recepciones:', error)
     return NextResponse.json(
       { success: false, error: 'Error al listar recepciones' },
       { status: 500 }
-    );
+    )
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Parsear body
-    const body = await request.json();
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
 
     // Validar con Zod
-    const validacion = createRecepcionSchema.safeParse(body);
-
+    const validacion = createRecepcionSchema.safeParse(body)
     if (!validacion.success) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Datos inválidos',
+          error: 'Datos invalidos',
           errors: validacion.error.format(),
         },
         { status: 400 }
-      );
+      )
     }
 
-    const data = validacion.data;
+    const data = validacion.data
 
-    // Obtener IP y User Agent para auditoría
-    const ip = request.headers.get('x-forwarded-for') ||
-               request.headers.get('x-real-ip') ||
-               'unknown';
-    const userAgent = request.headers.get('user-agent') || 'unknown';
+    // Verificar que el articulo existe
+    const { data: articulo, error: artError } = await supabase
+      .from('articulos')
+      .select('id, nombre, unidad_medida')
+      .eq('id', data.articuloId)
+      .eq('activo', true)
+      .single()
 
-    // TODO: En producción, obtener userId del token/sesión
-    // Por ahora usamos un usuario de prueba
-    const usuarioId = 'admin-temp-id';
+    if (artError || !articulo) {
+      return NextResponse.json(
+        { success: false, error: 'Articulo no encontrado' },
+        { status: 404 }
+      )
+    }
 
-    // Ejecutar entrada usando el servicio PEPS
-    const resultado = await ejecutarEntrada({
-      articuloId: data.articuloId,
-      cantidad: data.cantidad,
-      fechaVencimiento: data.fechaVencimiento,
-      numeroLote: data.numeroLote,
-      proveedor: data.proveedor,
-      costoUnitario: data.costoUnitario,
-      ubicacion: data.ubicacion,
-      documentoReferencia: data.documentoReferencia,
-      usuarioId,
-      ip,
-      userAgent,
-    });
+    // Llamar funcion de recepcion de PostgreSQL
+    const { data: loteId, error: recError } = await supabaseAdmin.rpc('receive_inventory', {
+      p_articulo_id: data.articuloId,
+      p_cantidad: data.cantidad,
+      p_fecha_vencimiento: data.fechaVencimiento,
+      p_costo_unitario: data.costoUnitario || 0,
+      p_usuario_id: user.id,
+      p_proveedor: data.proveedor || null,
+      p_numero_lote: data.numeroLote || null,
+      p_documento: data.documentoReferencia || null,
+    })
+
+    if (recError) {
+      console.error('Error en receive_inventory:', recError)
+      return NextResponse.json(
+        { success: false, error: recError.message },
+        { status: 500 }
+      )
+    }
+
+    // Obtener el lote creado
+    const { data: lote } = await supabaseAdmin
+      .from('lotes')
+      .select('*')
+      .eq('id', loteId)
+      .single()
 
     return NextResponse.json({
       success: true,
-      message: 'Recepción creada exitosamente',
-      data: resultado,
-    }, { status: 201 });
+      message: 'Recepcion creada exitosamente',
+      data: {
+        loteId,
+        lote,
+        articulo: {
+          id: articulo.id,
+          nombre: articulo.nombre,
+          unidadMedida: articulo.unidad_medida,
+        },
+        cantidad: data.cantidad,
+      },
+    }, { status: 201 })
 
   } catch (error) {
-    console.error('Error al crear recepción:', error);
-
+    console.error('Error al crear recepcion:', error)
     return NextResponse.json(
       {
         success: false,
-        error: 'Error al crear recepción',
+        error: 'Error al crear recepcion',
         message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
-    );
+    )
   }
 }

@@ -1,18 +1,17 @@
 /**
  * API: /api/documentos-recepcion/[id]
- * GET - Obtener documento de recepción con detalles
+ * GET - Obtener documento de recepcion con detalles
  * DELETE - Eliminar documento en estado BORRADOR
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { obtenerDocumentoRecepcion } from '@/lib/services/documento-recepcion.service';
-import { prisma } from '@/lib/prisma';
-import { registrarBitacora } from '@/lib/services/bitacora.service';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
 interface RouteParams {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string }>
 }
 
 /**
@@ -20,26 +19,46 @@ interface RouteParams {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
+    const { id } = await params
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    const documento = await obtenerDocumentoRecepcion(id);
-
-    if (!documento) {
+    if (!user) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Documento no encontrado',
-        },
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
+
+    // Obtener documento con detalles
+    const { data: documento, error } = await supabase
+      .from('documentos_recepcion')
+      .select(`
+        *,
+        proveedor:proveedores(id, codigo, nombre),
+        usuario:perfiles(id, nombre),
+        detalles:detalles_recepcion(
+          *,
+          articulo:articulos(id, sku, nombre, unidad_medida),
+          lote:lotes(id, numero_lote, cantidad_disponible)
+        )
+      `)
+      .eq('id', id)
+      .single()
+
+    if (error || !documento) {
+      return NextResponse.json(
+        { success: false, error: 'Documento no encontrado' },
         { status: 404 }
-      );
+      )
     }
 
     return NextResponse.json({
       success: true,
       data: documento,
-    });
+    })
   } catch (error) {
-    console.error('Error al obtener documento de recepción:', error);
+    console.error('Error al obtener documento de recepcion:', error)
     return NextResponse.json(
       {
         success: false,
@@ -47,7 +66,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
-    );
+    )
   }
 }
 
@@ -56,22 +75,29 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
+    const { id } = await params
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // Verificar que existe y está en BORRADOR
-    const documento = await prisma.documentoRecepcion.findUnique({
-      where: { id },
-      select: { id: true, numero: true, estado: true },
-    });
-
-    if (!documento) {
+    if (!user) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Documento no encontrado',
-        },
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
+
+    // Verificar que existe y esta en BORRADOR
+    const { data: documento, error: fetchError } = await supabase
+      .from('documentos_recepcion')
+      .select('id, numero, estado')
+      .eq('id', id)
+      .single()
+
+    if (fetchError || !documento) {
+      return NextResponse.json(
+        { success: false, error: 'Documento no encontrado' },
         { status: 404 }
-      );
+      )
     }
 
     if (documento.estado !== 'BORRADOR') {
@@ -82,51 +108,43 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
           estadoActual: documento.estado,
         },
         { status: 400 }
-      );
+      )
     }
 
-    // Obtener IP y User Agent
-    const ip = request.headers.get('x-forwarded-for') ||
-               request.headers.get('x-real-ip') ||
-               'unknown';
-    const userAgent = request.headers.get('user-agent') || 'unknown';
+    // Eliminar detalles primero
+    await supabaseAdmin
+      .from('detalles_recepcion')
+      .delete()
+      .eq('documento_id', id)
 
-    // TODO: Obtener userId del token/sesión
-    const usuarioId = 'admin-temp-id';
+    // Eliminar documento
+    const { error: deleteError } = await supabaseAdmin
+      .from('documentos_recepcion')
+      .delete()
+      .eq('id', id)
 
-    // Eliminar documento y sus detalles
-    await prisma.$transaction(async (tx) => {
-      // Eliminar detalles primero
-      await tx.detalleRecepcion.deleteMany({
-        where: { documentoId: id },
-      });
+    if (deleteError) {
+      throw deleteError
+    }
 
-      // Eliminar documento
-      await tx.documentoRecepcion.delete({
-        where: { id },
-      });
-
-      // Registrar en bitácora
-      await registrarBitacora({
-        usuarioId,
-        accion: 'ELIMINAR_DOCUMENTO_RECEPCION',
-        entidad: 'DocumentoRecepcion',
-        entidadId: id,
-        estadoAnterior: {
-          numero: documento.numero,
-          estado: documento.estado,
-        },
-        ip,
-        userAgent,
-      });
-    });
+    // Registrar en audit_log
+    await supabaseAdmin.from('audit_log').insert({
+      usuario_id: user.id,
+      accion: 'ELIMINAR_DOCUMENTO_RECEPCION',
+      entidad: 'documentos_recepcion',
+      entidad_id: id,
+      datos_anteriores: {
+        numero: documento.numero,
+        estado: documento.estado,
+      },
+    })
 
     return NextResponse.json({
       success: true,
       message: 'Documento eliminado correctamente',
-    });
+    })
   } catch (error) {
-    console.error('Error al eliminar documento de recepción:', error);
+    console.error('Error al eliminar documento de recepcion:', error)
     return NextResponse.json(
       {
         success: false,
@@ -134,6 +152,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
-    );
+    )
   }
 }

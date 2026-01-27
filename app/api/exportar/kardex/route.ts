@@ -1,56 +1,67 @@
 /**
  * API: /api/exportar/kardex
- * GET - Exporta el Kardex de un artículo a Excel
- * FASE 7: Exportación a Excel
+ * GET - Exporta el Kardex de un articulo a Excel
+ *
+ * NOTA: Esta funcionalidad depende del servicio excel.service que usa Prisma.
+ * Stub implementado para version Supabase.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { generarExcelKardex } from '@/lib/services/excel.service';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const articuloId = searchParams.get('articuloId');
-    const fechaDesde = searchParams.get('fechaDesde') || undefined;
-    const fechaHasta = searchParams.get('fechaHasta') || undefined;
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
+
+    const { searchParams } = new URL(request.url)
+    const articuloId = searchParams.get('articuloId')
 
     if (!articuloId) {
       return NextResponse.json(
-        { success: false, error: 'El ID del artículo es requerido' },
+        { success: false, error: 'El ID del articulo es requerido' },
         { status: 400 }
-      );
+      )
     }
 
-    // Obtener info del artículo para el nombre del archivo
-    const articulo = await prisma.articulo.findUnique({
-      where: { id: articuloId },
-      select: { sku: true },
-    });
+    // Verificar que el articulo existe
+    const { data: articulo, error } = await supabase
+      .from('articulos')
+      .select('sku')
+      .eq('id', articuloId)
+      .single()
 
-    if (!articulo) {
+    if (error || !articulo) {
       return NextResponse.json(
-        { success: false, error: 'Artículo no encontrado' },
+        { success: false, error: 'Articulo no encontrado' },
         { status: 404 }
-      );
+      )
     }
 
-    const buffer = await generarExcelKardex(articuloId, fechaDesde, fechaHasta);
-
-    return new NextResponse(buffer, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="kardex_${articulo.sku}_${new Date().toISOString().split('T')[0]}.xlsx"`,
+    // Esta funcionalidad requiere el servicio excel.service
+    // que usa funciones de generacion de Excel complejas.
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Exportacion a Excel no implementada en version Supabase',
+        message: 'Esta operacion requiere migracion del servicio excel.service a Supabase. Use /api/reportes/kardex para obtener los datos en JSON.',
       },
-    });
+      { status: 501 }
+    )
   } catch (error) {
-    console.error('Error al exportar Kardex:', error);
+    console.error('Error al exportar Kardex:', error)
     return NextResponse.json(
       { success: false, error: 'Error al exportar Kardex' },
       { status: 500 }
-    );
+    )
   }
 }

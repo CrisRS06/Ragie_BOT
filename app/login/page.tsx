@@ -158,7 +158,7 @@ export default function LoginPage() {
           <p className="text-xs text-gray-600 dark:text-gray-400 text-center">
             <strong>Credenciales de prueba:</strong>
             <br />
-            admin@bodegaje.example.com / Password123!
+            admin@bodegaje.example.com / Admin2024Secure
           </p>
         </div>
       </div>

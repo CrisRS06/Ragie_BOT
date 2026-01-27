@@ -1,68 +1,70 @@
 /**
  * API: /api/documentos-recepcion
- * POST - Crear nuevo documento de recepción multi-producto
- * GET - Listar documentos de recepción
+ * POST - Crear nuevo documento de recepcion multi-producto
+ * GET - Listar documentos de recepcion
+ *
+ * NOTA: Esta funcionalidad depende de servicios complejos de Prisma.
+ * Stub implementado para version Supabase.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import {
-  createDocumentoRecepcionSchema,
-  listDocumentosRecepcionSchema,
-} from '@/lib/validations/documento-recepcion.schema';
-import {
-  crearDocumentoRecepcion,
-  listarDocumentosRecepcion,
-} from '@/lib/services/documento-recepcion.service';
-import { EstadoDocumentoRecepcion } from '@prisma/client';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/documentos-recepcion - Listar documentos
  */
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // Parsear parámetros
-    const params = {
-      estado: searchParams.get('estado') as EstadoDocumentoRecepcion | undefined,
-      proveedorId: searchParams.get('proveedorId') || undefined,
-      fechaDesde: searchParams.get('fechaDesde') || undefined,
-      fechaHasta: searchParams.get('fechaHasta') || undefined,
-      limite: parseInt(searchParams.get('limite') || '20'),
-      offset: parseInt(searchParams.get('offset') || '0'),
-    };
-
-    // Validar parámetros
-    const validacion = listDocumentosRecepcionSchema.safeParse(params);
-    if (!validacion.success) {
+    if (!user) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Parámetros inválidos',
-          errors: validacion.error.format(),
-        },
-        { status: 400 }
-      );
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
     }
 
-    // Listar documentos
-    const resultado = await listarDocumentosRecepcion({
-      estado: validacion.data.estado as EstadoDocumentoRecepcion | undefined,
-      proveedorId: validacion.data.proveedorId,
-      fechaDesde: validacion.data.fechaDesde ? new Date(validacion.data.fechaDesde) : undefined,
-      fechaHasta: validacion.data.fechaHasta ? new Date(validacion.data.fechaHasta) : undefined,
-      limite: validacion.data.limite,
-      offset: validacion.data.offset,
-    });
+    const searchParams = request.nextUrl.searchParams
+    const estado = searchParams.get('estado')
+    const proveedorId = searchParams.get('proveedorId')
+    const limite = parseInt(searchParams.get('limite') || '20')
+    const offset = parseInt(searchParams.get('offset') || '0')
+
+    let query = supabase
+      .from('documentos_recepcion')
+      .select(`
+        *,
+        proveedor:proveedores(id, codigo, nombre),
+        usuario:perfiles(id, nombre)
+      `, { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limite - 1)
+
+    if (estado) {
+      query = query.eq('estado', estado)
+    }
+    if (proveedorId) {
+      query = query.eq('proveedor_id', proveedorId)
+    }
+
+    const { data: documentos, error, count } = await query
+
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json({
       success: true,
-      ...resultado,
-    });
+      data: documentos || [],
+      total: count || 0,
+      limite,
+      offset,
+    })
   } catch (error) {
-    console.error('Error al listar documentos de recepción:', error);
+    console.error('Error al listar documentos de recepcion:', error)
     return NextResponse.json(
       {
         success: false,
@@ -70,68 +72,40 @@ export async function GET(request: NextRequest) {
         message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
-    );
+    )
   }
 }
 
 /**
  * POST /api/documentos-recepcion - Crear documento
+ * NOTA: Esta funcionalidad requiere logica compleja de transacciones.
+ * Stub para version Supabase.
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // Validar con Zod
-    const validacion = createDocumentoRecepcionSchema.safeParse(body);
-    if (!validacion.success) {
+    if (!user) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Datos inválidos',
-          errors: validacion.error.format(),
-        },
-        { status: 400 }
-      );
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
     }
 
-    // Obtener IP y User Agent
-    const ip = request.headers.get('x-forwarded-for') ||
-               request.headers.get('x-real-ip') ||
-               'unknown';
-    const userAgent = request.headers.get('user-agent') || 'unknown';
-
-    // TODO: Obtener userId del token/sesión
-    const usuarioId = 'admin-temp-id';
-
-    // Crear documento
-    const resultado = await crearDocumentoRecepcion({
-      proveedorId: validacion.data.proveedorId || undefined,
-      documentoExterno: validacion.data.documentoExterno || undefined,
-      fechaDocumento: validacion.data.fechaDocumento || undefined,
-      observaciones: validacion.data.observaciones || undefined,
-      lineas: validacion.data.lineas.map((linea) => ({
-        articuloId: linea.articuloId,
-        cantidad: linea.cantidad,
-        costoUnitario: linea.costoUnitario ?? undefined,
-        fechaVencimiento: linea.fechaVencimiento,
-        numeroLoteProveedor: linea.numeroLoteProveedor ?? undefined,
-        ubicacion: linea.ubicacion ?? undefined,
-      })),
-      usuarioId,
-      ip,
-      userAgent,
-    });
-
+    // Esta funcionalidad requiere el servicio documento-recepcion.service
+    // que usa Prisma con transacciones complejas.
+    // Por ahora, retornamos un stub.
     return NextResponse.json(
       {
-        success: true,
-        message: 'Documento de recepción creado exitosamente',
-        data: resultado.documento,
+        success: false,
+        error: 'Funcionalidad no implementada en version Supabase',
+        message: 'Esta operacion requiere migracion del servicio documento-recepcion.service a Supabase',
       },
-      { status: 201 }
-    );
+      { status: 501 }
+    )
   } catch (error) {
-    console.error('Error al crear documento de recepción:', error);
+    console.error('Error al crear documento de recepcion:', error)
     return NextResponse.json(
       {
         success: false,
@@ -139,6 +113,6 @@ export async function POST(request: NextRequest) {
         message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
-    );
+    )
   }
 }

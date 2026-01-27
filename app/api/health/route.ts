@@ -1,37 +1,41 @@
 /**
  * Health Check Endpoint
- * Verifica que la aplicación y la base de datos estén funcionando
+ * Verifica que la aplicacion y la base de datos esten funcionando
  */
 
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function GET() {
   try {
-    // Verificar conexión a la base de datos con query simple
-    await prisma.$queryRaw`SELECT 1`;
+    // Verificar conexion a la base de datos con query simple
+    const { error } = await supabaseAdmin.from('articulos').select('id').limit(1)
+
+    if (error && !error.message.includes('does not exist')) {
+      throw error
+    }
 
     return NextResponse.json({
       status: 'healthy',
       database: 'connected',
       timestamp: new Date().toISOString(),
-      version: '1.0.0',
-    });
+      version: '2.0.0-supabase',
+    })
   } catch (error) {
-    // Si la BD no está disponible, retornar unhealthy
-    console.error('Health check failed:', error);
+    console.error('Health check failed:', error)
 
     return NextResponse.json(
       {
         status: 'unhealthy',
         database: 'disconnected',
         timestamp: new Date().toISOString(),
-        version: '1.0.0',
+        version: '2.0.0-supabase',
+        error: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 503 }
-    );
+    )
   }
 }

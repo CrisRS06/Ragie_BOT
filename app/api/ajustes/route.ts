@@ -3,155 +3,111 @@
  * POST - Crear ajuste de inventario
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUserId } from '@/lib/auth';
-import { registrarBitacora } from '@/lib/services/bitacora.service';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { z } from 'zod'
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
-// Schema de validación
-const createAjusteSchema = z.object({
-  articuloId: z.string().min(1, 'Artículo requerido'),
-  loteId: z.string().min(1, 'Lote requerido'),
-  tipoAjuste: z.enum(['INCREMENTO', 'DECREMENTO']),
-  cantidad: z.number().positive('La cantidad debe ser positiva'),
-  motivo: z.string().min(10, 'El motivo debe tener al menos 10 caracteres').max(500),
-});
+const ajusteSchema = z.object({
+  loteId: z.string().uuid('ID de lote invalido'),
+  cantidadAjuste: z.number(),
+  observaciones: z.string().min(10, 'Observaciones requeridas'),
+})
 
-/**
- * POST /api/ajustes - Crear ajuste de inventario
- */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // Validar datos
-    const validacion = createAjusteSchema.safeParse(body);
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const validacion = ajusteSchema.safeParse(body)
+
     if (!validacion.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Datos inválidos',
-          errors: validacion.error.format(),
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: 'Datos invalidos', errors: validacion.error.format() }, { status: 400 })
     }
 
-    const { articuloId, loteId, tipoAjuste, cantidad, motivo } = validacion.data;
-    const usuarioId = await getCurrentUserId();
+    const { loteId, cantidadAjuste, observaciones } = validacion.data
 
-    if (!usuarioId) {
-      return NextResponse.json(
-        { success: false, error: 'No autenticado' },
-        { status: 401 }
-      );
+    // Obtener lote actual
+    const { data: lote, error: loteError } = await supabase
+      .from('lotes')
+      .select('*, articulo:articulos(id, sku, nombre, unidad_medida)')
+      .eq('id', loteId)
+      .single()
+
+    if (loteError || !lote) {
+      return NextResponse.json({ success: false, error: 'Lote no encontrado' }, { status: 404 })
     }
 
-    // Verificar que el lote existe y pertenece al artículo
-    const lote = await prisma.lote.findFirst({
-      where: {
-        id: loteId,
-        articuloId,
-        activo: true,
-      },
-      include: {
-        articulo: true,
-      },
-    });
+    // Calcular nueva cantidad
+    const nuevaCantidad = Number(lote.cantidad_disponible) + cantidadAjuste
 
-    if (!lote) {
-      return NextResponse.json(
-        { success: false, error: 'Lote no encontrado o no pertenece al artículo' },
-        { status: 404 }
-      );
+    if (nuevaCantidad < 0) {
+      return NextResponse.json({
+        success: false,
+        error: `Ajuste invalido: resultaria en cantidad negativa (${nuevaCantidad})`
+      }, { status: 400 })
     }
 
-    // Calcular la cantidad ajustada
-    const cantidadAjuste = tipoAjuste === 'INCREMENTO' ? cantidad : -cantidad;
+    // Actualizar lote
+    const { error: updateError } = await supabaseAdmin
+      .from('lotes')
+      .update({
+        cantidad_disponible: nuevaCantidad,
+        agotado: nuevaCantidad <= 0,
+      })
+      .eq('id', loteId)
 
-    // Verificar que no quede negativo
-    if (lote.cantidadDisponible + cantidadAjuste < 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `No se puede reducir más de ${lote.cantidadDisponible} unidades disponibles`,
-        },
-        { status: 400 }
-      );
+    if (updateError) {
+      throw updateError
     }
 
-    // Ejecutar ajuste en transacción
-    const resultado = await prisma.$transaction(async (tx) => {
-      const saldoAnterior = lote.cantidadDisponible;
-      const saldoNuevo = saldoAnterior + cantidadAjuste;
+    // Crear movimiento de ajuste
+    const { data: movimiento, error: movError } = await supabaseAdmin
+      .from('movimientos')
+      .insert({
+        articulo_id: lote.articulo_id,
+        lote_id: loteId,
+        tipo: 'AJUSTE',
+        cantidad: Math.abs(cantidadAjuste),
+        usuario_id: user.id,
+        observaciones: `${cantidadAjuste >= 0 ? 'Ajuste positivo' : 'Ajuste negativo'}: ${observaciones} (Saldo anterior: ${lote.cantidad_disponible}, Saldo nuevo: ${nuevaCantidad})`,
+      })
+      .select('id')
+      .single()
 
-      // Actualizar lote
-      const loteActualizado = await tx.lote.update({
-        where: { id: loteId },
-        data: {
-          cantidadDisponible: saldoNuevo,
-          agotado: saldoNuevo === 0,
-        },
-      });
+    if (movError) {
+      throw movError
+    }
 
-      // Crear movimiento de ajuste
-      const movimiento = await tx.movimiento.create({
-        data: {
-          articuloId,
-          loteId,
-          tipo: 'AJUSTE_INVENTARIO',
-          cantidad: cantidadAjuste,
-          unidadMedida: lote.articulo.unidadMedida,
-          usuarioId,
-          motivo: `${motivo} (Saldo anterior: ${saldoAnterior}, Saldo nuevo: ${saldoNuevo})`,
-        },
-      });
-
-      return {
-        movimiento,
-        lote: loteActualizado,
-        saldoAnterior,
-        saldoNuevo,
-      };
-    });
-
-    // Registrar en bitácora
-    await registrarBitacora({
-      usuarioId,
+    // Registrar en audit_log
+    await supabaseAdmin.from('audit_log').insert({
+      usuario_id: user.id,
       accion: 'AJUSTE_INVENTARIO',
-      entidad: 'Movimiento',
-      entidadId: resultado.movimiento.id,
-      estadoAnterior: {
-        loteId,
-        cantidadDisponible: resultado.saldoAnterior,
-      },
-      estadoNuevo: {
-        loteId,
-        cantidadDisponible: resultado.saldoNuevo,
-        tipoAjuste,
-        cantidad: cantidadAjuste,
-        motivo,
-      },
-    });
+      entidad: 'lotes',
+      entidad_id: loteId,
+      datos_anteriores: { cantidad_disponible: lote.cantidad_disponible },
+      datos_nuevos: { cantidad_disponible: nuevaCantidad, ajuste: cantidadAjuste },
+    })
 
     return NextResponse.json({
       success: true,
-      message: `Ajuste realizado exitosamente. Saldo anterior: ${resultado.saldoAnterior}, Saldo nuevo: ${resultado.saldoNuevo}`,
+      movimientoId: movimiento.id,
       data: {
-        movimientoId: resultado.movimiento.id,
-        saldoAnterior: resultado.saldoAnterior,
-        saldoNuevo: resultado.saldoNuevo,
-        cantidadAjustada: cantidadAjuste,
-      },
-    });
+        loteId,
+        cantidadAnterior: Number(lote.cantidad_disponible),
+        cantidadNueva: nuevaCantidad,
+        ajuste: cantidadAjuste,
+      }
+    })
   } catch (error) {
-    console.error('Error al crear ajuste:', error);
-    return NextResponse.json(
-      { success: false, error: 'Error al crear ajuste de inventario' },
-      { status: 500 }
-    );
+    console.error('Error en ajuste:', error)
+    return NextResponse.json({ success: false, error: 'Error interno' }, { status: 500 })
   }
 }

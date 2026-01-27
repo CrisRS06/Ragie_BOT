@@ -1,36 +1,13 @@
 /**
  * API: /api/reportes/valor-bodega
  * GET - Obtiene el valor total del inventario en bodega
- * FASE 5: Reporte para INS (seguros) y control interno
+ * Reporte para INS (seguros) y control interno
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
-export const dynamic = 'force-dynamic';
-
-interface ArticuloValorizado {
-  id: string;
-  sku: string;
-  nombre: string;
-  marca: string | null;
-  unidadMedida: string;
-  ivaPercent: number;
-  cantidadTotal: number;
-  valorSinIva: number;
-  valorIva: number;
-  valorConIva: number;
-  lotes: Array<{
-    id: string;
-    numeroLote: string | null;
-    cantidadDisponible: number;
-    costoUnitario: number | null;
-    fechaVencimiento: Date;
-    valorSinIva: number;
-    valorIva: number;
-    valorConIva: number;
-  }>;
-}
+export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/reportes/valor-bodega
@@ -38,83 +15,90 @@ interface ArticuloValorizado {
  */
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const incluirDetalleLotes = searchParams.get('detalle') === 'true';
-    const soloConStock = searchParams.get('soloConStock') !== 'false';
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // Obtener todos los artículos con sus lotes activos
-    const articulos = await prisma.articulo.findMany({
-      where: {
-        activo: true,
-      },
-      include: {
-        lotes: {
-          where: soloConStock ? {
-            activo: true,
-            agotado: false,
-            cantidadDisponible: { gt: 0 },
-          } : {
-            activo: true,
-          },
-          orderBy: { fechaIngresoTs: 'asc' },
-          select: {
-            id: true,
-            numeroLote: true,
-            cantidadDisponible: true,
-            costoUnitario: true,
-            fechaVencimiento: true,
-          },
-        },
-      },
-      orderBy: { nombre: 'asc' },
-    });
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
 
-    // Calcular valorización por artículo
-    const articulosValorizados: ArticuloValorizado[] = [];
-    let totalGeneralSinIva = 0;
-    let totalGeneralIva = 0;
-    let totalGeneralConIva = 0;
-    let totalArticulosConStock = 0;
-    let totalLotes = 0;
+    const { searchParams } = new URL(request.url)
+    const incluirDetalleLotes = searchParams.get('detalle') === 'true'
+    const soloConStock = searchParams.get('soloConStock') !== 'false'
 
-    for (const articulo of articulos) {
-      if (articulo.lotes.length === 0 && soloConStock) continue;
+    // Obtener todos los articulos activos
+    const { data: articulos, error: artError } = await supabase
+      .from('articulos')
+      .select('*')
+      .eq('activo', true)
+      .order('nombre')
 
-      let cantidadTotal = 0;
-      let valorArticuloSinIva = 0;
-      let valorArticuloIva = 0;
-      let valorArticuloConIva = 0;
+    if (artError) {
+      throw artError
+    }
 
-      const lotesValorizados = articulo.lotes.map((lote) => {
-        const costoUnitario = lote.costoUnitario || 0;
-        const valorLoteSinIva = lote.cantidadDisponible * costoUnitario;
-        const valorLoteIva = valorLoteSinIva * (articulo.ivaPercent || 0);
-        const valorLoteConIva = valorLoteSinIva + valorLoteIva;
+    // Para cada articulo, obtener sus lotes
+    const articulosValorizados = []
+    let totalGeneralSinIva = 0
+    let totalGeneralIva = 0
+    let totalGeneralConIva = 0
+    let totalArticulosConStock = 0
+    let totalLotes = 0
 
-        cantidadTotal += lote.cantidadDisponible;
-        valorArticuloSinIva += valorLoteSinIva;
-        valorArticuloIva += valorLoteIva;
-        valorArticuloConIva += valorLoteConIva;
-        totalLotes++;
+    for (const articulo of articulos || []) {
+      let lotesQuery = supabase
+        .from('lotes')
+        .select('id, numero_lote, cantidad_disponible, costo_unitario, fecha_vencimiento')
+        .eq('articulo_id', articulo.id)
+        .eq('activo', true)
+        .order('fecha_ingreso', { ascending: true })
+
+      if (soloConStock) {
+        lotesQuery = lotesQuery.eq('agotado', false).gt('cantidad_disponible', 0)
+      }
+
+      const { data: lotes } = await lotesQuery
+
+      if ((!lotes || lotes.length === 0) && soloConStock) continue
+
+      let cantidadTotal = 0
+      let valorArticuloSinIva = 0
+      let valorArticuloIva = 0
+      let valorArticuloConIva = 0
+
+      const lotesValorizados = (lotes || []).map((lote) => {
+        const costoUnitario = Number(lote.costo_unitario) || 0
+        const valorLoteSinIva = Number(lote.cantidad_disponible) * costoUnitario
+        const valorLoteIva = valorLoteSinIva * (Number(articulo.iva_percent) || 0)
+        const valorLoteConIva = valorLoteSinIva + valorLoteIva
+
+        cantidadTotal += Number(lote.cantidad_disponible)
+        valorArticuloSinIva += valorLoteSinIva
+        valorArticuloIva += valorLoteIva
+        valorArticuloConIva += valorLoteConIva
+        totalLotes++
 
         return {
           id: lote.id,
-          numeroLote: lote.numeroLote,
-          cantidadDisponible: lote.cantidadDisponible,
-          costoUnitario: lote.costoUnitario,
-          fechaVencimiento: lote.fechaVencimiento,
-          valorSinIva: valorLoteSinIva,
-          valorIva: valorLoteIva,
-          valorConIva: valorLoteConIva,
-        };
-      });
+          numeroLote: lote.numero_lote,
+          cantidadDisponible: Number(lote.cantidad_disponible),
+          costoUnitario: lote.costo_unitario,
+          fechaVencimiento: lote.fecha_vencimiento,
+          valorSinIva: Math.round(valorLoteSinIva * 100) / 100,
+          valorIva: Math.round(valorLoteIva * 100) / 100,
+          valorConIva: Math.round(valorLoteConIva * 100) / 100,
+        }
+      })
 
-      totalGeneralSinIva += valorArticuloSinIva;
-      totalGeneralIva += valorArticuloIva;
-      totalGeneralConIva += valorArticuloConIva;
+      totalGeneralSinIva += valorArticuloSinIva
+      totalGeneralIva += valorArticuloIva
+      totalGeneralConIva += valorArticuloConIva
 
       if (cantidadTotal > 0) {
-        totalArticulosConStock++;
+        totalArticulosConStock++
       }
 
       articulosValorizados.push({
@@ -122,18 +106,17 @@ export async function GET(request: NextRequest) {
         sku: articulo.sku,
         nombre: articulo.nombre,
         marca: articulo.marca,
-        unidadMedida: articulo.unidadMedida,
-        ivaPercent: articulo.ivaPercent,
+        unidadMedida: articulo.unidad_medida,
+        ivaPercent: articulo.iva_percent,
         cantidadTotal,
-        valorSinIva: valorArticuloSinIva,
-        valorIva: valorArticuloIva,
-        valorConIva: valorArticuloConIva,
+        valorSinIva: Math.round(valorArticuloSinIva * 100) / 100,
+        valorIva: Math.round(valorArticuloIva * 100) / 100,
+        valorConIva: Math.round(valorArticuloConIva * 100) / 100,
         lotes: incluirDetalleLotes ? lotesValorizados : [],
-      });
+      })
     }
 
-    // Preparar respuesta
-    const respuesta = {
+    return NextResponse.json({
       success: true,
       fechaReporte: new Date().toISOString(),
       resumen: {
@@ -143,25 +126,12 @@ export async function GET(request: NextRequest) {
         valorTotalSinIva: Math.round(totalGeneralSinIva * 100) / 100,
         valorTotalIva: Math.round(totalGeneralIva * 100) / 100,
         valorTotalConIva: Math.round(totalGeneralConIva * 100) / 100,
-        moneda: 'CRC', // Colones costarricenses
+        moneda: 'CRC',
       },
-      articulos: articulosValorizados.map((art) => ({
-        ...art,
-        valorSinIva: Math.round(art.valorSinIva * 100) / 100,
-        valorIva: Math.round(art.valorIva * 100) / 100,
-        valorConIva: Math.round(art.valorConIva * 100) / 100,
-        lotes: art.lotes.map((lote) => ({
-          ...lote,
-          valorSinIva: Math.round(lote.valorSinIva * 100) / 100,
-          valorIva: Math.round(lote.valorIva * 100) / 100,
-          valorConIva: Math.round(lote.valorConIva * 100) / 100,
-        })),
-      })),
-    };
-
-    return NextResponse.json(respuesta);
+      articulos: articulosValorizados,
+    })
   } catch (error) {
-    console.error('Error al generar reporte de valor de bodega:', error);
+    console.error('Error al generar reporte de valor de bodega:', error)
     return NextResponse.json(
       {
         success: false,
@@ -169,6 +139,6 @@ export async function GET(request: NextRequest) {
         message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
-    );
+    )
   }
 }

@@ -1,28 +1,27 @@
 /**
  * API: /api/configuracion
- * GET - Obtener configuración del sistema
- * PUT - Actualizar configuración del sistema
+ * GET - Obtener configuracion del sistema
+ * PUT - Actualizar configuracion del sistema
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUserId } from '@/lib/auth';
-import { registrarBitacora } from '@/lib/services/bitacora.service';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { z } from 'zod'
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
 // Valores por defecto del sistema
 const DEFAULT_CONFIG: Record<string, { valor: string; tipo: string; descripcion: string }> = {
   diasAlertaVencimiento: {
     valor: '30',
     tipo: 'NUMBER',
-    descripcion: 'Días antes del vencimiento para generar alerta',
+    descripcion: 'Dias antes del vencimiento para generar alerta',
   },
   diasAlertaCritico: {
     valor: '7',
     tipo: 'NUMBER',
-    descripcion: 'Días para alerta crítica de vencimiento',
+    descripcion: 'Dias para alerta critica de vencimiento',
   },
   permitirStockNegativo: {
     valor: 'false',
@@ -47,79 +46,99 @@ const DEFAULT_CONFIG: Record<string, { valor: string; tipo: string; descripcion:
   nombreOrganizacion: {
     valor: 'PANI',
     tipo: 'STRING',
-    descripcion: 'Nombre de la organización',
+    descripcion: 'Nombre de la organizacion',
   },
   emailNotificaciones: {
     valor: '',
     tipo: 'STRING',
-    descripcion: 'Email para envío de notificaciones',
+    descripcion: 'Email para envio de notificaciones',
   },
   maxRecepcionesDia: {
     valor: '100',
     tipo: 'NUMBER',
-    descripcion: 'Máximo de recepciones por día',
+    descripcion: 'Maximo de recepciones por dia',
   },
   maxDespachosDia: {
     valor: '100',
     tipo: 'NUMBER',
-    descripcion: 'Máximo de despachos por día',
+    descripcion: 'Maximo de despachos por dia',
   },
-};
+}
 
-// Función para parsear valor según tipo
+// Funcion para parsear valor segun tipo
 function parseValue(valor: string, tipo: string): string | number | boolean {
   switch (tipo) {
     case 'NUMBER':
-      return parseInt(valor, 10);
+      return parseInt(valor, 10)
     case 'BOOLEAN':
-      return valor === 'true';
+      return valor === 'true'
     default:
-      return valor;
+      return valor
   }
 }
 
-// Función para convertir a string
+// Funcion para convertir a string
 function stringifyValue(valor: unknown): string {
-  if (typeof valor === 'boolean') return valor ? 'true' : 'false';
-  if (typeof valor === 'number') return valor.toString();
-  return String(valor);
+  if (typeof valor === 'boolean') return valor ? 'true' : 'false'
+  if (typeof valor === 'number') return valor.toString()
+  return String(valor)
 }
 
 /**
- * GET /api/configuracion - Obtener configuración actual
+ * GET /api/configuracion - Obtener configuracion actual
  */
 export async function GET() {
   try {
-    // Buscar todas las configuraciones existentes
-    const configs = await prisma.configuracion.findMany();
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // Construir objeto de configuración con defaults
-    const resultado: Record<string, unknown> = {};
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
+
+    // Buscar todas las configuraciones existentes
+    const { data: configs, error } = await supabase
+      .from('configuracion')
+      .select('*')
+
+    if (error) {
+      console.error('Error al obtener configuracion:', error)
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 }
+      )
+    }
+
+    // Construir objeto de configuracion con defaults
+    const resultado: Record<string, unknown> = {}
 
     // Primero agregar valores por defecto
     for (const [clave, config] of Object.entries(DEFAULT_CONFIG)) {
-      resultado[clave] = parseValue(config.valor, config.tipo);
+      resultado[clave] = parseValue(config.valor, config.tipo)
     }
 
     // Sobrescribir con valores de la base de datos
-    for (const config of configs) {
-      resultado[config.clave] = parseValue(config.valor, config.tipo);
+    for (const config of configs || []) {
+      resultado[config.clave] = parseValue(config.valor, config.tipo)
     }
 
     return NextResponse.json({
       success: true,
       data: resultado,
-    });
+    })
   } catch (error) {
-    console.error('Error al obtener configuración:', error);
+    console.error('Error al obtener configuracion:', error)
     return NextResponse.json(
-      { success: false, error: 'Error al obtener configuración' },
+      { success: false, error: 'Error al obtener configuracion' },
       { status: 500 }
-    );
+    )
   }
 }
 
-// Schema de validación para actualizar configuración
+// Schema de validacion para actualizar configuracion
 const updateConfigSchema = z.object({
   diasAlertaVencimiento: z.number().min(1).max(365).optional(),
   diasAlertaCritico: z.number().min(1).max(30).optional(),
@@ -131,97 +150,108 @@ const updateConfigSchema = z.object({
   emailNotificaciones: z.string().email().nullable().optional(),
   maxRecepcionesDia: z.number().min(1).max(1000).optional(),
   maxDespachosDia: z.number().min(1).max(1000).optional(),
-});
+})
 
 /**
- * PUT /api/configuracion - Actualizar configuración
+ * PUT /api/configuracion - Actualizar configuracion
  */
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json();
-    const usuarioId = await getCurrentUserId();
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    if (!usuarioId) {
+    if (!user) {
       return NextResponse.json(
-        { success: false, error: 'No autenticado' },
+        { success: false, error: 'No autorizado' },
         { status: 401 }
-      );
+      )
     }
 
+    const body = await request.json()
+
     // Validar datos
-    const validacion = updateConfigSchema.safeParse(body);
+    const validacion = updateConfigSchema.safeParse(body)
     if (!validacion.success) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Datos inválidos',
+          error: 'Datos invalidos',
           errors: validacion.error.format(),
         },
         { status: 400 }
-      );
+      )
     }
 
-    const datosActualizados = validacion.data;
+    const datosActualizados = validacion.data
 
-    // Obtener configuración anterior para bitácora
-    const configAnterior = await prisma.configuracion.findMany();
-    const estadoAnterior: Record<string, unknown> = {};
-    for (const config of configAnterior) {
-      estadoAnterior[config.clave] = parseValue(config.valor, config.tipo);
+    // Obtener configuracion anterior para audit_log
+    const { data: configAnterior } = await supabase
+      .from('configuracion')
+      .select('*')
+
+    const estadoAnterior: Record<string, unknown> = {}
+    for (const config of configAnterior || []) {
+      estadoAnterior[config.clave] = parseValue(config.valor, config.tipo)
     }
 
     // Actualizar cada clave
     for (const [clave, valor] of Object.entries(datosActualizados)) {
-      if (valor === undefined || valor === null) continue;
+      if (valor === undefined || valor === null) continue
 
-      const defaultConfig = DEFAULT_CONFIG[clave];
-      const tipo = defaultConfig?.tipo || 'STRING';
+      const defaultConfig = DEFAULT_CONFIG[clave]
+      const tipo = defaultConfig?.tipo || 'STRING'
 
-      await prisma.configuracion.upsert({
-        where: { clave },
-        update: {
-          valor: stringifyValue(valor),
-        },
-        create: {
+      // Upsert - insertar o actualizar
+      const { error } = await supabaseAdmin
+        .from('configuracion')
+        .upsert({
           clave,
           valor: stringifyValue(valor),
           tipo,
           descripcion: defaultConfig?.descripcion || clave,
-        },
-      });
+        }, {
+          onConflict: 'clave',
+        })
+
+      if (error) {
+        console.error(`Error al actualizar ${clave}:`, error)
+      }
     }
 
-    // Registrar en bitácora
-    await registrarBitacora({
-      usuarioId,
+    // Registrar en audit_log
+    await supabaseAdmin.from('audit_log').insert({
+      usuario_id: user.id,
       accion: 'ACTUALIZAR_CONFIGURACION',
-      entidad: 'Configuracion',
-      entidadId: 'sistema',
-      estadoAnterior,
-      estadoNuevo: datosActualizados,
-    });
+      entidad: 'configuracion',
+      entidad_id: 'sistema',
+      datos_anteriores: estadoAnterior as Record<string, string | number | boolean>,
+      datos_nuevos: datosActualizados as Record<string, string | number | boolean>,
+    })
 
-    // Obtener configuración actualizada
-    const configsActualizadas = await prisma.configuracion.findMany();
-    const resultado: Record<string, unknown> = {};
+    // Obtener configuracion actualizada
+    const { data: configsActualizadas } = await supabase
+      .from('configuracion')
+      .select('*')
+
+    const resultado: Record<string, unknown> = {}
 
     for (const [clave, config] of Object.entries(DEFAULT_CONFIG)) {
-      resultado[clave] = parseValue(config.valor, config.tipo);
+      resultado[clave] = parseValue(config.valor, config.tipo)
     }
-    for (const config of configsActualizadas) {
-      resultado[config.clave] = parseValue(config.valor, config.tipo);
+    for (const config of configsActualizadas || []) {
+      resultado[config.clave] = parseValue(config.valor, config.tipo)
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Configuración actualizada exitosamente',
+      message: 'Configuracion actualizada exitosamente',
       data: resultado,
-    });
+    })
   } catch (error) {
-    console.error('Error al actualizar configuración:', error);
+    console.error('Error al actualizar configuracion:', error)
     return NextResponse.json(
-      { success: false, error: 'Error al actualizar configuración' },
+      { success: false, error: 'Error al actualizar configuracion' },
       { status: 500 }
-    );
+    )
   }
 }

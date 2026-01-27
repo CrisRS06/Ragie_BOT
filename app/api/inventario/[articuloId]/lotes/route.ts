@@ -1,126 +1,117 @@
 /**
  * API: GET /api/inventario/[articuloId]/lotes
- * Obtiene los lotes de un artículo específico con información detallada
+ * Obtiene los lotes de un articulo especifico con informacion detallada
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ articuloId: string }> }
 ) {
   try {
-    const { articuloId } = await params;
-    const searchParams = request.nextUrl.searchParams;
-    const incluirAgotados = searchParams.get('incluirAgotados') === 'true';
-    const ordenarPor = searchParams.get('ordenarPor') || 'fechaIngresoTs'; // fechaIngresoTs | fechaVencimiento
+    const { articuloId } = await params
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // Verificar que el artículo existe
-    const articulo = await prisma.articulo.findUnique({
-      where: { id: articuloId },
-      select: {
-        id: true,
-        sku: true,
-        nombre: true,
-        descripcionSIGAF: true,
-        unidadMedida: true,
-        stockMinimo: true,
-      },
-    });
-
-    if (!articulo) {
+    if (!user) {
       return NextResponse.json(
-        { error: 'Artículo no encontrado' },
-        { status: 404 }
-      );
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
     }
 
-    // Construir filtro de lotes
-    const whereLotes: any = {
-      articuloId,
-      activo: true,
-    };
+    const searchParams = request.nextUrl.searchParams
+    const incluirAgotados = searchParams.get('incluirAgotados') === 'true'
+    const ordenarPor = searchParams.get('ordenarPor') || 'fecha_ingreso'
+
+    // Verificar que el articulo existe
+    const { data: articulo, error: artError } = await supabase
+      .from('articulos')
+      .select('id, sku, nombre, descripcion_sigaf, unidad_medida, stock_minimo')
+      .eq('id', articuloId)
+      .single()
+
+    if (artError || !articulo) {
+      return NextResponse.json(
+        { error: 'Articulo no encontrado' },
+        { status: 404 }
+      )
+    }
+
+    // Construir query de lotes
+    let query = supabase
+      .from('lotes')
+      .select('*')
+      .eq('articulo_id', articuloId)
+      .eq('activo', true)
 
     if (!incluirAgotados) {
-      whereLotes.agotado = false;
-      whereLotes.cantidadDisponible = { gt: 0 };
+      query = query.eq('agotado', false).gt('cantidad_disponible', 0)
     }
 
     // Ordenamiento
-    const orderBy: any = {};
-    if (ordenarPor === 'fechaVencimiento') {
-      orderBy.fechaVencimiento = 'asc';
+    if (ordenarPor === 'fecha_vencimiento') {
+      query = query.order('fecha_vencimiento', { ascending: true })
     } else {
-      orderBy.fechaIngresoTs = 'asc'; // PEPS por defecto
+      query = query.order('fecha_ingreso', { ascending: true })
     }
 
-    // Obtener lotes
-    const lotes = await prisma.lote.findMany({
-      where: whereLotes,
-      orderBy,
-      include: {
-        movimientos: {
-          where: { anulado: false },
-          select: {
-            id: true,
-            tipo: true,
-            cantidad: true,
-            timestamp: true,
-          },
-          orderBy: { timestamp: 'desc' },
-          take: 5, // Últimos 5 movimientos
-        },
-      },
-    });
+    const { data: lotes, error: lotesError } = await query
 
-    // Procesar lotes con información adicional
-    const lotesConInfo = lotes.map((lote, index) => {
+    if (lotesError) {
+      throw lotesError
+    }
+
+    // Procesar lotes con informacion adicional
+    const lotesConInfo = (lotes || []).map((lote, index) => {
       const diasHastaVencimiento = Math.ceil(
-        (lote.fechaVencimiento.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-      );
+        (new Date(lote.fecha_vencimiento).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+      )
 
-      let severidadVencimiento: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA' | 'OK' = 'OK';
+      let severidadVencimiento: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA' | 'OK' = 'OK'
       if (diasHastaVencimiento < 0) {
-        severidadVencimiento = 'CRITICA';
+        severidadVencimiento = 'CRITICA'
       } else if (diasHastaVencimiento <= 7) {
-        severidadVencimiento = 'ALTA';
+        severidadVencimiento = 'ALTA'
       } else if (diasHastaVencimiento <= 15) {
-        severidadVencimiento = 'MEDIA';
+        severidadVencimiento = 'MEDIA'
       } else if (diasHastaVencimiento <= 30) {
-        severidadVencimiento = 'BAJA';
+        severidadVencimiento = 'BAJA'
       }
 
       return {
         id: lote.id,
-        numeroLote: lote.numeroLote || `LOTE-${lote.id.substring(0, 8)}`,
-        ordenPEPS: index + 1, // Posición en la cola PEPS
-        cantidadInicial: lote.cantidadInicial,
-        cantidadDisponible: lote.cantidadDisponible,
-        cantidadConsumida: lote.cantidadInicial - lote.cantidadDisponible,
+        numeroLote: lote.numero_lote || `LOTE-${lote.id.substring(0, 8)}`,
+        ordenPEPS: index + 1,
+        cantidadInicial: Number(lote.cantidad_inicial),
+        cantidadDisponible: Number(lote.cantidad_disponible),
+        cantidadConsumida: Number(lote.cantidad_inicial) - Number(lote.cantidad_disponible),
         porcentajeConsumido: Math.round(
-          ((lote.cantidadInicial - lote.cantidadDisponible) / lote.cantidadInicial) * 100
+          ((Number(lote.cantidad_inicial) - Number(lote.cantidad_disponible)) / Number(lote.cantidad_inicial)) * 100
         ),
-        fechaIngresoTs: lote.fechaIngresoTs,
-        fechaVencimiento: lote.fechaVencimiento,
+        fechaIngresoTs: lote.fecha_ingreso,
+        fechaVencimiento: lote.fecha_vencimiento,
         diasHastaVencimiento,
         vencido: diasHastaVencimiento < 0,
         severidadVencimiento,
         proveedor: lote.proveedor,
-        costoUnitario: lote.costoUnitario,
+        costoUnitario: lote.costo_unitario,
         ubicacion: lote.ubicacion,
         agotado: lote.agotado,
-        ultimosMovimientos: lote.movimientos,
-      };
-    });
+      }
+    })
 
-    // Calcular estadísticas
-    const stockTotal = lotesConInfo.reduce((sum, l) => sum + l.cantidadDisponible, 0);
-    const lotesActivos = lotesConInfo.filter((l) => !l.agotado).length;
-    const lotesVencidos = lotesConInfo.filter((l) => l.vencido).length;
+    // Calcular estadisticas
+    const stockTotal = lotesConInfo.reduce((sum, l) => sum + l.cantidadDisponible, 0)
+    const lotesActivos = lotesConInfo.filter((l) => !l.agotado).length
+    const lotesVencidos = lotesConInfo.filter((l) => l.vencido).length
     const lotesProximosAVencer = lotesConInfo.filter(
       (l) => !l.vencido && l.diasHastaVencimiento <= 30
-    ).length;
+    ).length
 
     return NextResponse.json({
       success: true,
@@ -133,14 +124,14 @@ export async function GET(
         lotesAgotados: lotesConInfo.length - lotesActivos,
         lotesVencidos,
         lotesProximosAVencer,
-        alertaStockBajo: articulo.stockMinimo !== null && stockTotal <= articulo.stockMinimo,
+        alertaStockBajo: articulo.stock_minimo !== null && stockTotal <= Number(articulo.stock_minimo),
       },
-    });
+    })
   } catch (error) {
-    console.error('Error al obtener lotes:', error);
+    console.error('Error al obtener lotes:', error)
     return NextResponse.json(
       { error: 'Error interno del servidor' },
       { status: 500 }
-    );
+    )
   }
 }

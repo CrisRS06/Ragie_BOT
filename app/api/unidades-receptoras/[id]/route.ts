@@ -5,24 +5,23 @@
  * DELETE - Desactivar unidad receptora (soft delete)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUserId } from '@/lib/auth';
-import { registrarBitacora } from '@/lib/services/bitacora.service';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { z } from 'zod'
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
-// Schema de validación para actualizar
+// Schema de validacion para actualizar
 const updateUnidadReceptoraSchema = z.object({
   nombre: z.string().min(3).max(200).optional(),
   direccion: z.string().max(500).optional().nullable(),
   telefono: z.string().max(50).optional().nullable(),
   responsable: z.string().max(100).optional().nullable(),
-});
+})
 
 interface RouteParams {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string }>
 }
 
 /**
@@ -30,29 +29,40 @@ interface RouteParams {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
+    const { id } = await params
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    const unidad = await prisma.unidadReceptora.findUnique({
-      where: { id },
-    });
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
 
-    if (!unidad) {
+    const { data: unidad, error } = await supabase
+      .from('unidades_receptoras')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error || !unidad) {
       return NextResponse.json(
         { success: false, error: 'Unidad receptora no encontrada' },
         { status: 404 }
-      );
+      )
     }
 
     return NextResponse.json({
       success: true,
       data: unidad,
-    });
+    })
   } catch (error) {
-    console.error('Error al obtener unidad receptora:', error);
+    console.error('Error al obtener unidad receptora:', error)
     return NextResponse.json(
       { success: false, error: 'Error al obtener unidad receptora' },
       { status: 500 }
-    );
+    )
   }
 }
 
@@ -61,72 +71,81 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  */
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
-    const body = await request.json();
+    const { id } = await params
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
 
     // Validar datos
-    const validacion = updateUnidadReceptoraSchema.safeParse(body);
+    const validacion = updateUnidadReceptoraSchema.safeParse(body)
     if (!validacion.success) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Datos inválidos',
+          error: 'Datos invalidos',
           errors: validacion.error.format(),
         },
         { status: 400 }
-      );
+      )
     }
 
     // Verificar que existe
-    const unidadExistente = await prisma.unidadReceptora.findUnique({
-      where: { id },
-    });
+    const { data: unidadExistente, error: fetchError } = await supabase
+      .from('unidades_receptoras')
+      .select('*')
+      .eq('id', id)
+      .single()
 
-    if (!unidadExistente) {
+    if (fetchError || !unidadExistente) {
       return NextResponse.json(
         { success: false, error: 'Unidad receptora no encontrada' },
         { status: 404 }
-      );
+      )
     }
 
-    const usuarioId = await getCurrentUserId();
-
-    if (!usuarioId) {
-      return NextResponse.json(
-        { success: false, error: 'No autenticado' },
-        { status: 401 }
-      );
-    }
-
-    const data = validacion.data;
+    const data = validacion.data
 
     // Actualizar
-    const unidadActualizada = await prisma.unidadReceptora.update({
-      where: { id },
-      data,
-    });
+    const { data: unidadActualizada, error } = await supabaseAdmin
+      .from('unidades_receptoras')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single()
 
-    // Registrar en bitácora
-    await registrarBitacora({
-      usuarioId,
+    if (error) {
+      throw error
+    }
+
+    // Registrar en audit_log
+    await supabaseAdmin.from('audit_log').insert({
+      usuario_id: user.id,
       accion: 'EDITAR_UNIDAD_RECEPTORA',
-      entidad: 'UnidadReceptora',
-      entidadId: id,
-      estadoAnterior: unidadExistente,
-      estadoNuevo: unidadActualizada,
-    });
+      entidad: 'unidades_receptoras',
+      entidad_id: id,
+      datos_anteriores: unidadExistente,
+      datos_nuevos: unidadActualizada,
+    })
 
     return NextResponse.json({
       success: true,
       message: 'Unidad receptora actualizada exitosamente',
       data: unidadActualizada,
-    });
+    })
   } catch (error) {
-    console.error('Error al actualizar unidad receptora:', error);
+    console.error('Error al actualizar unidad receptora:', error)
     return NextResponse.json(
       { success: false, error: 'Error al actualizar unidad receptora' },
       { status: 500 }
-    );
+    )
   }
 }
 
@@ -135,55 +154,63 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
+    const { id } = await params
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
 
     // Verificar que existe
-    const unidad = await prisma.unidadReceptora.findUnique({
-      where: { id },
-    });
+    const { data: unidad, error: fetchError } = await supabase
+      .from('unidades_receptoras')
+      .select('*')
+      .eq('id', id)
+      .single()
 
-    if (!unidad) {
+    if (fetchError || !unidad) {
       return NextResponse.json(
         { success: false, error: 'Unidad receptora no encontrada' },
         { status: 404 }
-      );
-    }
-
-    const usuarioId = await getCurrentUserId();
-
-    if (!usuarioId) {
-      return NextResponse.json(
-        { success: false, error: 'No autenticado' },
-        { status: 401 }
-      );
+      )
     }
 
     // Soft delete
-    const unidadDesactivada = await prisma.unidadReceptora.update({
-      where: { id },
-      data: { activo: false },
-    });
+    const { data: unidadDesactivada, error } = await supabaseAdmin
+      .from('unidades_receptoras')
+      .update({ activo: false })
+      .eq('id', id)
+      .select()
+      .single()
 
-    // Registrar en bitácora
-    await registrarBitacora({
-      usuarioId,
+    if (error) {
+      throw error
+    }
+
+    // Registrar en audit_log
+    await supabaseAdmin.from('audit_log').insert({
+      usuario_id: user.id,
       accion: 'DESACTIVAR_UNIDAD_RECEPTORA',
-      entidad: 'UnidadReceptora',
-      entidadId: id,
-      estadoAnterior: { activo: true },
-      estadoNuevo: { activo: false },
-    });
+      entidad: 'unidades_receptoras',
+      entidad_id: id,
+      datos_anteriores: { activo: true },
+      datos_nuevos: { activo: false },
+    })
 
     return NextResponse.json({
       success: true,
       message: 'Unidad receptora desactivada exitosamente',
       data: unidadDesactivada,
-    });
+    })
   } catch (error) {
-    console.error('Error al desactivar unidad receptora:', error);
+    console.error('Error al desactivar unidad receptora:', error)
     return NextResponse.json(
       { success: false, error: 'Error al desactivar unidad receptora' },
       { status: 500 }
-    );
+    )
   }
 }

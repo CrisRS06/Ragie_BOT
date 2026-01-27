@@ -1,15 +1,18 @@
 /**
  * API: /api/documentos-recepcion/[id]/procesar
- * POST - Procesar documento de recepción (crear lotes y movimientos)
+ * POST - Procesar documento de recepcion (crear lotes y movimientos)
+ *
+ * NOTA: Esta funcionalidad depende del servicio documento-recepcion.service que usa Prisma.
+ * Stub implementado para version Supabase.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { procesarDocumentoRecepcion } from '@/lib/services/documento-recepcion.service';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
 interface RouteParams {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string }>
 }
 
 /**
@@ -18,32 +21,30 @@ interface RouteParams {
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
+    const { id } = await params
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // Obtener IP y User Agent
-    const ip = request.headers.get('x-forwarded-for') ||
-               request.headers.get('x-real-ip') ||
-               'unknown';
-    const userAgent = request.headers.get('user-agent') || 'unknown';
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
 
-    // TODO: Obtener userId del token/sesión
-    const usuarioId = 'admin-temp-id';
-
-    // Procesar documento
-    const resultado = await procesarDocumentoRecepcion({
-      documentoId: id,
-      usuarioId,
-      ip,
-      userAgent,
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: `Documento procesado exitosamente. Se crearon ${resultado.lotesCreados} lotes y ${resultado.movimientosCreados} movimientos.`,
-      data: resultado,
-    });
+    // Esta funcionalidad requiere el servicio documento-recepcion.service
+    // que usa funciones complejas de transacciones Prisma.
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Procesamiento de documentos no implementado en version Supabase',
+        message: 'Esta operacion requiere migracion del servicio documento-recepcion.service a Supabase',
+        documentoId: id,
+      },
+      { status: 501 }
+    )
   } catch (error) {
-    console.error('Error al procesar documento de recepción:', error);
+    console.error('Error al procesar documento de recepcion:', error)
     return NextResponse.json(
       {
         success: false,
@@ -51,6 +52,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
-    );
+    )
   }
 }

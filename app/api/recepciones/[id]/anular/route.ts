@@ -1,88 +1,88 @@
 /**
  * API: POST /api/recepciones/[id]/anular
- * Anular una recepción existente
+ * Anular una recepcion existente
+ *
+ * NOTA: Esta funcionalidad requiere transacciones complejas.
+ * Stub implementado para version Supabase.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUserId } from '@/lib/auth';
-import { registrarBitacora } from '@/lib/services/bitacora.service';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { z } from 'zod'
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
 const anularRecepcionSchema = z.object({
   motivo: z.string().min(10, 'El motivo debe tener al menos 10 caracteres').max(500),
-});
+})
 
 interface RouteParams {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string }>
 }
 
 /**
- * POST /api/recepciones/[id]/anular - Anular recepción
+ * POST /api/recepciones/[id]/anular - Anular recepcion
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
-    const body = await request.json();
+    const { id } = await params
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
 
     // Validar motivo
-    const validacion = anularRecepcionSchema.safeParse(body);
+    const validacion = anularRecepcionSchema.safeParse(body)
     if (!validacion.success) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Datos inválidos',
+          error: 'Datos invalidos',
           errors: validacion.error.format(),
         },
         { status: 400 }
-      );
+      )
     }
 
-    const { motivo } = validacion.data;
-    const usuarioId = await getCurrentUserId();
-
-    if (!usuarioId) {
-      return NextResponse.json(
-        { success: false, error: 'No autenticado' },
-        { status: 401 }
-      );
-    }
+    const { motivo } = validacion.data
 
     // Buscar el movimiento de entrada
-    const movimiento = await prisma.movimiento.findFirst({
-      where: {
-        OR: [
-          { id },
-          { loteId: id },
-        ],
-        tipo: 'ENTRADA',
-      },
-      include: {
-        lote: true,
-        articulo: true,
-      },
-    });
+    const { data: movimiento, error: fetchError } = await supabase
+      .from('movimientos')
+      .select(`
+        *,
+        lote:lotes(*)
+      `)
+      .eq('tipo', 'ENTRADA')
+      .or(`id.eq.${id},lote_id.eq.${id}`)
+      .single()
 
-    if (!movimiento) {
+    if (fetchError || !movimiento) {
       return NextResponse.json(
-        { success: false, error: 'Recepción no encontrada' },
+        { success: false, error: 'Recepcion no encontrada' },
         { status: 404 }
-      );
+      )
     }
 
     if (movimiento.anulado) {
       return NextResponse.json(
-        { success: false, error: 'Esta recepción ya está anulada' },
+        { success: false, error: 'Esta recepcion ya esta anulada' },
         { status: 400 }
-      );
+      )
     }
 
     // Verificar que el lote no ha sido consumido
     if (movimiento.lote) {
       const cantidadConsumida =
-        movimiento.lote.cantidadInicial - movimiento.lote.cantidadDisponible;
+        Number(movimiento.lote.cantidad_inicial) - Number(movimiento.lote.cantidad_disponible)
 
       if (cantidadConsumida > 0) {
         return NextResponse.json(
@@ -91,77 +91,80 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             error: `No se puede anular: ya se han despachado ${cantidadConsumida} unidades de este lote`,
           },
           { status: 400 }
-        );
+        )
       }
     }
 
-    // Ejecutar anulación en transacción
-    const resultado = await prisma.$transaction(async (tx) => {
-      // 1. Anular el movimiento
-      const movimientoAnulado = await tx.movimiento.update({
-        where: { id: movimiento.id },
-        data: {
-          anulado: true,
-          motivoAnulacion: motivo,
-        },
-      });
+    // 1. Anular el movimiento
+    const { error: updateMovError } = await supabaseAdmin
+      .from('movimientos')
+      .update({
+        anulado: true,
+        motivo_anulacion: motivo,
+      })
+      .eq('id', movimiento.id)
 
-      // 2. Desactivar el lote si existe
-      if (movimiento.lote) {
-        await tx.lote.update({
-          where: { id: movimiento.lote.id },
-          data: {
-            activo: false,
-            cantidadDisponible: 0,
-            agotado: true,
-          },
-        });
+    if (updateMovError) {
+      throw updateMovError
+    }
+
+    // 2. Desactivar el lote si existe
+    if (movimiento.lote) {
+      const { error: updateLoteError } = await supabaseAdmin
+        .from('lotes')
+        .update({
+          activo: false,
+          cantidad_disponible: 0,
+          agotado: true,
+        })
+        .eq('id', movimiento.lote.id)
+
+      if (updateLoteError) {
+        throw updateLoteError
       }
+    }
 
-      // 3. Crear movimiento de ajuste para dejar registro
-      await tx.movimiento.create({
-        data: {
-          articuloId: movimiento.articuloId,
-          loteId: movimiento.loteId,
-          tipo: 'AJUSTE_INVENTARIO',
-          cantidad: -movimiento.cantidad,
-          unidadMedida: movimiento.unidadMedida,
-          usuarioId,
-          motivo: `Anulación de recepción: ${motivo} (Saldo anterior: ${movimiento.cantidad}, Saldo nuevo: 0)`,
-        },
-      });
+    // 3. Crear movimiento de ajuste para dejar registro
+    await supabaseAdmin
+      .from('movimientos')
+      .insert({
+        articulo_id: movimiento.articulo_id,
+        lote_id: movimiento.lote_id,
+        tipo: 'AJUSTE_INVENTARIO',
+        cantidad: -movimiento.cantidad,
+        unidad_medida: movimiento.unidad_medida,
+        usuario_id: user.id,
+        motivo: `Anulacion de recepcion: ${motivo} (Saldo anterior: ${movimiento.cantidad}, Saldo nuevo: 0)`,
+      })
 
-      return movimientoAnulado;
-    });
-
-    // Registrar en bitácora
-    await registrarBitacora({
-      usuarioId,
+    // Registrar en audit_log
+    await supabaseAdmin.from('audit_log').insert({
+      usuario_id: user.id,
       accion: 'ANULAR_RECEPCION',
-      entidad: 'Movimiento',
-      entidadId: movimiento.id,
-      estadoAnterior: {
+      entidad: 'movimientos',
+      entidad_id: movimiento.id,
+      datos_anteriores: {
         anulado: false,
         loteActivo: true,
         cantidad: movimiento.cantidad,
       },
-      estadoNuevo: {
+      datos_nuevos: {
         anulado: true,
         loteActivo: false,
         motivo,
       },
-    });
+    })
 
     return NextResponse.json({
       success: true,
-      message: 'Recepción anulada exitosamente',
-      data: resultado,
-    });
+      message: 'Recepcion anulada exitosamente',
+      data: { id: movimiento.id, anulado: true },
+    })
   } catch (error) {
-    console.error('Error al anular recepción:', error);
+    console.error('Error al anular recepcion:', error)
     return NextResponse.json(
-      { success: false, error: 'Error al anular recepción' },
+      { success: false, error: 'Error al anular recepcion' },
       { status: 500 }
-    );
+    )
   }
 }

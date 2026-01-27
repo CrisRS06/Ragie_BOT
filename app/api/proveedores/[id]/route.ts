@@ -5,15 +5,14 @@
  * DELETE - Desactivar proveedor (soft delete)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUserId } from '@/lib/auth';
-import { registrarBitacora } from '@/lib/services/bitacora.service';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { z } from 'zod'
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
-// Schema de validación para actualizar
+// Schema de validacion para actualizar
 const updateProveedorSchema = z.object({
   nombre: z.string().min(3).max(200).optional(),
   ruc: z.string().max(20).optional().nullable(),
@@ -21,10 +20,10 @@ const updateProveedorSchema = z.object({
   telefono: z.string().max(50).optional().nullable(),
   email: z.string().email().optional().nullable().or(z.literal('')),
   contacto: z.string().max(100).optional().nullable(),
-});
+})
 
 interface RouteParams {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string }>
 }
 
 /**
@@ -32,29 +31,40 @@ interface RouteParams {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
+    const { id } = await params
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    const proveedor = await prisma.proveedor.findUnique({
-      where: { id },
-    });
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
 
-    if (!proveedor) {
+    const { data: proveedor, error } = await supabase
+      .from('proveedores')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error || !proveedor) {
       return NextResponse.json(
         { success: false, error: 'Proveedor no encontrado' },
         { status: 404 }
-      );
+      )
     }
 
     return NextResponse.json({
       success: true,
       data: proveedor,
-    });
+    })
   } catch (error) {
-    console.error('Error al obtener proveedor:', error);
+    console.error('Error al obtener proveedor:', error)
     return NextResponse.json(
       { success: false, error: 'Error al obtener proveedor' },
       { status: 500 }
-    );
+    )
   }
 }
 
@@ -63,75 +73,84 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  */
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
-    const body = await request.json();
+    const { id } = await params
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
 
     // Validar datos
-    const validacion = updateProveedorSchema.safeParse(body);
+    const validacion = updateProveedorSchema.safeParse(body)
     if (!validacion.success) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Datos inválidos',
+          error: 'Datos invalidos',
           errors: validacion.error.format(),
         },
         { status: 400 }
-      );
+      )
     }
 
     // Verificar que el proveedor existe
-    const proveedorExistente = await prisma.proveedor.findUnique({
-      where: { id },
-    });
+    const { data: proveedorExistente, error: fetchError } = await supabase
+      .from('proveedores')
+      .select('*')
+      .eq('id', id)
+      .single()
 
-    if (!proveedorExistente) {
+    if (fetchError || !proveedorExistente) {
       return NextResponse.json(
         { success: false, error: 'Proveedor no encontrado' },
         { status: 404 }
-      );
+      )
     }
 
-    const usuarioId = await getCurrentUserId();
-
-    if (!usuarioId) {
-      return NextResponse.json(
-        { success: false, error: 'No autenticado' },
-        { status: 401 }
-      );
-    }
-
-    const data = validacion.data;
+    const data = validacion.data
 
     // Actualizar proveedor
-    const proveedorActualizado = await prisma.proveedor.update({
-      where: { id },
-      data: {
+    const { data: proveedorActualizado, error } = await supabaseAdmin
+      .from('proveedores')
+      .update({
         ...data,
         email: data.email || null,
-      },
-    });
+      })
+      .eq('id', id)
+      .select()
+      .single()
 
-    // Registrar en bitácora
-    await registrarBitacora({
-      usuarioId,
+    if (error) {
+      throw error
+    }
+
+    // Registrar en audit_log
+    await supabaseAdmin.from('audit_log').insert({
+      usuario_id: user.id,
       accion: 'EDITAR_PROVEEDOR',
-      entidad: 'Proveedor',
-      entidadId: id,
-      estadoAnterior: proveedorExistente,
-      estadoNuevo: proveedorActualizado,
-    });
+      entidad: 'proveedores',
+      entidad_id: id,
+      datos_anteriores: proveedorExistente,
+      datos_nuevos: proveedorActualizado,
+    })
 
     return NextResponse.json({
       success: true,
       message: 'Proveedor actualizado exitosamente',
       data: proveedorActualizado,
-    });
+    })
   } catch (error) {
-    console.error('Error al actualizar proveedor:', error);
+    console.error('Error al actualizar proveedor:', error)
     return NextResponse.json(
       { success: false, error: 'Error al actualizar proveedor' },
       { status: 500 }
-    );
+    )
   }
 }
 
@@ -140,55 +159,63 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
+    const { id } = await params
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
 
     // Verificar que el proveedor existe
-    const proveedor = await prisma.proveedor.findUnique({
-      where: { id },
-    });
+    const { data: proveedor, error: fetchError } = await supabase
+      .from('proveedores')
+      .select('*')
+      .eq('id', id)
+      .single()
 
-    if (!proveedor) {
+    if (fetchError || !proveedor) {
       return NextResponse.json(
         { success: false, error: 'Proveedor no encontrado' },
         { status: 404 }
-      );
-    }
-
-    const usuarioId = await getCurrentUserId();
-
-    if (!usuarioId) {
-      return NextResponse.json(
-        { success: false, error: 'No autenticado' },
-        { status: 401 }
-      );
+      )
     }
 
     // Soft delete
-    const proveedorDesactivado = await prisma.proveedor.update({
-      where: { id },
-      data: { activo: false },
-    });
+    const { data: proveedorDesactivado, error } = await supabaseAdmin
+      .from('proveedores')
+      .update({ activo: false })
+      .eq('id', id)
+      .select()
+      .single()
 
-    // Registrar en bitácora
-    await registrarBitacora({
-      usuarioId,
+    if (error) {
+      throw error
+    }
+
+    // Registrar en audit_log
+    await supabaseAdmin.from('audit_log').insert({
+      usuario_id: user.id,
       accion: 'DESACTIVAR_PROVEEDOR',
-      entidad: 'Proveedor',
-      entidadId: id,
-      estadoAnterior: { activo: true },
-      estadoNuevo: { activo: false },
-    });
+      entidad: 'proveedores',
+      entidad_id: id,
+      datos_anteriores: { activo: true },
+      datos_nuevos: { activo: false },
+    })
 
     return NextResponse.json({
       success: true,
       message: 'Proveedor desactivado exitosamente',
       data: proveedorDesactivado,
-    });
+    })
   } catch (error) {
-    console.error('Error al desactivar proveedor:', error);
+    console.error('Error al desactivar proveedor:', error)
     return NextResponse.json(
       { success: false, error: 'Error al desactivar proveedor' },
       { status: 500 }
-    );
+    )
   }
 }

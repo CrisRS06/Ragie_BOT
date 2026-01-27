@@ -1,22 +1,24 @@
 /**
  * API: POST /api/despachos/[id]/anular
  * Anular un despacho existente y revertir el stock
+ *
+ * NOTA: Esta funcionalidad requiere transacciones complejas.
+ * Implementacion basica para version Supabase.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getCurrentUserId } from '@/lib/auth';
-import { registrarBitacora } from '@/lib/services/bitacora.service';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { z } from 'zod'
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
 const anularDespachoSchema = z.object({
   motivo: z.string().min(10, 'El motivo debe tener al menos 10 caracteres').max(500),
-});
+})
 
 interface RouteParams {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string }>
 }
 
 /**
@@ -24,141 +26,130 @@ interface RouteParams {
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params;
-    const body = await request.json();
+    const { id } = await params
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
 
     // Validar motivo
-    const validacion = anularDespachoSchema.safeParse(body);
+    const validacion = anularDespachoSchema.safeParse(body)
     if (!validacion.success) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Datos inválidos',
+          error: 'Datos invalidos',
           errors: validacion.error.format(),
         },
         { status: 400 }
-      );
+      )
     }
 
-    const { motivo } = validacion.data;
-    const usuarioId = await getCurrentUserId();
+    const { motivo } = validacion.data
 
-    if (!usuarioId) {
-      return NextResponse.json(
-        { success: false, error: 'No autenticado' },
-        { status: 401 }
-      );
-    }
+    // Buscar el movimiento de salida
+    const { data: movimiento, error: fetchError } = await supabase
+      .from('movimientos')
+      .select(`
+        *,
+        lote:lotes(*)
+      `)
+      .eq('id', id)
+      .eq('tipo', 'SALIDA')
+      .eq('anulado', false)
+      .single()
 
-    // Buscar el despacho por ID del movimiento
-    const movimientos = await prisma.movimiento.findMany({
-      where: {
-        id,
-        tipo: 'SALIDA',
-        anulado: false,
-      },
-      include: {
-        lote: true,
-        articulo: true,
-      },
-    });
-
-    if (movimientos.length === 0) {
+    if (fetchError || !movimiento) {
       return NextResponse.json(
         { success: false, error: 'Despacho no encontrado o ya anulado' },
         { status: 404 }
-      );
+      )
     }
 
-    // Ejecutar anulación en transacción
-    const resultado = await prisma.$transaction(async (tx) => {
-      const lotesRevertidos: Array<{ loteId: string; cantidad: number }> = [];
+    // 1. Anular el movimiento de salida
+    const { error: updateMovError } = await supabaseAdmin
+      .from('movimientos')
+      .update({
+        anulado: true,
+        motivo_anulacion: motivo,
+      })
+      .eq('id', movimiento.id)
 
-      for (const movimiento of movimientos) {
-        // 1. Anular el movimiento de salida
-        await tx.movimiento.update({
-          where: { id: movimiento.id },
-          data: {
-            anulado: true,
-            motivoAnulacion: motivo,
-          },
-        });
+    if (updateMovError) {
+      throw updateMovError
+    }
 
-        // 2. Revertir el stock al lote
-        if (movimiento.lote) {
-          const loteActualizado = await tx.lote.update({
-            where: { id: movimiento.lote.id },
-            data: {
-              cantidadDisponible: {
-                increment: movimiento.cantidad,
-              },
-              agotado: false, // El lote ya no está agotado
-            },
-          });
+    // 2. Revertir el stock al lote
+    let cantidadRevertida = 0
+    if (movimiento.lote) {
+      const nuevaCantidad = Number(movimiento.lote.cantidad_disponible) + Number(movimiento.cantidad)
 
-          lotesRevertidos.push({
-            loteId: movimiento.lote.id,
-            cantidad: movimiento.cantidad,
-          });
+      const { error: updateLoteError } = await supabaseAdmin
+        .from('lotes')
+        .update({
+          cantidad_disponible: nuevaCantidad,
+          agotado: false,
+        })
+        .eq('id', movimiento.lote.id)
 
-          // 3. Crear movimiento de ajuste para registro
-          await tx.movimiento.create({
-            data: {
-              articuloId: movimiento.articuloId,
-              loteId: movimiento.loteId,
-              tipo: 'AJUSTE_INVENTARIO',
-              cantidad: movimiento.cantidad, // Positivo porque es reversión
-              unidadMedida: movimiento.unidadMedida,
-              usuarioId,
-              motivo: `Reversión por anulación de despacho: ${motivo} (Saldo anterior: ${movimiento.lote.cantidadDisponible}, Saldo nuevo: ${loteActualizado.cantidadDisponible})`,
-            },
-          });
-        }
+      if (updateLoteError) {
+        throw updateLoteError
       }
 
-      return {
-        movimientosAnulados: movimientos.length,
-        lotesRevertidos,
-      };
-    });
+      cantidadRevertida = Number(movimiento.cantidad)
 
-    // Calcular totales para respuesta
-    const cantidadTotalRevertida = resultado.lotesRevertidos.reduce(
-      (sum, l) => sum + l.cantidad,
-      0
-    );
+      // 3. Crear movimiento de ajuste para registro
+      await supabaseAdmin
+        .from('movimientos')
+        .insert({
+          articulo_id: movimiento.articulo_id,
+          lote_id: movimiento.lote_id,
+          tipo: 'AJUSTE_INVENTARIO',
+          cantidad: movimiento.cantidad,
+          unidad_medida: movimiento.unidad_medida,
+          usuario_id: user.id,
+          motivo: `Reversion por anulacion de despacho: ${motivo} (Saldo anterior: ${movimiento.lote.cantidad_disponible}, Saldo nuevo: ${nuevaCantidad})`,
+        })
+    }
 
-    // Registrar en bitácora
-    await registrarBitacora({
-      usuarioId,
+    // Registrar en audit_log
+    await supabaseAdmin.from('audit_log').insert({
+      usuario_id: user.id,
       accion: 'ANULAR_DESPACHO',
-      entidad: 'Movimiento',
-      entidadId: id,
-      estadoAnterior: {
-        movimientos: movimientos.length,
-        cantidadTotal: cantidadTotalRevertida,
+      entidad: 'movimientos',
+      entidad_id: id,
+      datos_anteriores: {
+        anulado: false,
+        cantidad: movimiento.cantidad,
       },
-      estadoNuevo: {
+      datos_nuevos: {
         anulado: true,
         motivo,
-        lotesRevertidos: resultado.lotesRevertidos,
+        cantidadRevertida,
       },
-    });
+    })
 
     return NextResponse.json({
       success: true,
-      message: `Despacho anulado exitosamente. Se revirtieron ${cantidadTotalRevertida} unidades a ${resultado.lotesRevertidos.length} lote(s).`,
+      message: `Despacho anulado exitosamente. Se revirtieron ${cantidadRevertida} unidades.`,
       data: {
-        movimientosAnulados: resultado.movimientosAnulados,
-        cantidadRevertida: cantidadTotalRevertida,
-        lotesRevertidos: resultado.lotesRevertidos,
+        movimientosAnulados: 1,
+        cantidadRevertida,
+        lotesRevertidos: movimiento.lote ? [{ loteId: movimiento.lote.id, cantidad: cantidadRevertida }] : [],
       },
-    });
+    })
   } catch (error) {
-    console.error('Error al anular despacho:', error);
+    console.error('Error al anular despacho:', error)
     return NextResponse.json(
       { success: false, error: 'Error al anular despacho' },
       { status: 500 }
-    );
+    )
   }
 }

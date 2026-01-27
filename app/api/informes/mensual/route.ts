@@ -2,89 +2,98 @@
  * API: /api/informes/mensual
  * GET - Obtener informe mensual existente
  * POST - Generar nuevo informe mensual
+ *
+ * NOTA: Esta funcionalidad depende del servicio informes.service que usa Prisma.
+ * Stub implementado para version Supabase.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { generarInformeMensual, verificarNecesidadInformeMensual } from '@/lib/services/informes.service';
-import { getCurrentUserId } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const mes = searchParams.get('mes');
-    const anio = searchParams.get('anio');
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // Obtener informes existentes
-    const where: any = {
-      tipo: 'MENSUAL_INVENTARIO',
-    };
-
-    if (mes && anio) {
-      const inicio = new Date(parseInt(anio), parseInt(mes) - 1, 1);
-      const fin = new Date(parseInt(anio), parseInt(mes), 0);
-      where.periodoInicio = { gte: inicio };
-      where.periodoFin = { lte: fin };
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
     }
 
-    const informes = await prisma.informe.findMany({
-      where,
-      orderBy: { periodoInicio: 'desc' },
-      take: 12,
-    });
+    const searchParams = request.nextUrl.searchParams
+    const mes = searchParams.get('mes')
+    const anio = searchParams.get('anio')
 
-    // Verificar necesidad de informe
-    const necesidad = await verificarNecesidadInformeMensual();
+    // Obtener informes existentes
+    let query = supabase
+      .from('informes')
+      .select('*')
+      .eq('tipo', 'MENSUAL_INVENTARIO')
+      .order('periodo_inicio', { ascending: false })
+      .limit(12)
+
+    if (mes && anio) {
+      const inicio = new Date(parseInt(anio), parseInt(mes) - 1, 1)
+      const fin = new Date(parseInt(anio), parseInt(mes), 0)
+      query = query
+        .gte('periodo_inicio', inicio.toISOString())
+        .lte('periodo_fin', fin.toISOString())
+    }
+
+    const { data: informes, error } = await query
+
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json({
       success: true,
-      informes,
-      necesidad,
-    });
+      informes: informes || [],
+      necesidad: {
+        necesitaGenerar: true,
+        mensaje: 'Verificacion de necesidad de informe no implementada en version Supabase',
+      },
+    })
   } catch (error) {
-    console.error('Error al obtener informes:', error);
+    console.error('Error al obtener informes:', error)
     return NextResponse.json(
       { error: 'Error interno del servidor' },
       { status: 500 }
-    );
+    )
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const usuarioId = await getCurrentUserId();
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    if (!usuarioId) {
+    if (!user) {
       return NextResponse.json(
-        { success: false, error: 'No autenticado' },
+        { success: false, error: 'No autorizado' },
         { status: 401 }
-      );
+      )
     }
 
-    const resultado = await generarInformeMensual({
-      generadoPorId: usuarioId,
-    });
-
-    return NextResponse.json({
-      success: true,
-      informe: resultado.informe,
-      firma: resultado.firma,
-      totalArticulos: resultado.datos.length,
-      mensaje: `Informe mensual generado exitosamente con ${resultado.datos.length} artículos`,
-    });
+    // Esta funcionalidad requiere el servicio informes.service
+    // que usa funciones complejas de generacion de informes.
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Generacion de informe mensual no implementada en version Supabase',
+        message: 'Esta operacion requiere migracion del servicio informes.service a Supabase',
+      },
+      { status: 501 }
+    )
   } catch (error) {
-    console.error('Error al generar informe:', error);
-
-    if (error instanceof Error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 400 }
-      );
-    }
-
+    console.error('Error al generar informe:', error)
     return NextResponse.json(
       { error: 'Error al generar informe' },
       { status: 500 }
-    );
+    )
   }
 }

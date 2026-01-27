@@ -1,62 +1,53 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { loginUser, COOKIE_NAME } from '@/lib/auth';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { mapUserToAuth } from '@/lib/supabase/auth'
 
 export async function POST(request: NextRequest) {
   try {
-    let body;
+    let body
     try {
-      body = await request.json();
-    } catch (parseError) {
-      console.error('Error parsing request body:', parseError);
+      body = await request.json()
+    } catch {
       return NextResponse.json(
-        { success: false, error: 'JSON inválido en el body' },
+        { success: false, error: 'JSON invalido en el body' },
         { status: 400 }
-      );
+      )
     }
 
-    const { email, password } = body;
+    const { email, password } = body
 
     if (!email || !password) {
       return NextResponse.json(
-        { success: false, error: 'Email y contraseña son requeridos' },
+        { success: false, error: 'Email y contrasena son requeridos' },
         { status: 400 }
-      );
+      )
     }
 
-    console.log('Attempting login for:', email);
+    const supabase = await createClient()
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
 
-    const result = await loginUser(email, password);
-
-    console.log('Login result success:', result.success);
-
-    if (!result.success) {
+    if (error) {
+      console.error('Login error:', error.message)
       return NextResponse.json(
-        { success: false, error: result.error },
+        { success: false, error: 'Credenciales invalidas' },
         { status: 401 }
-      );
+      )
     }
 
-    // Crear response con cookie
-    const response = NextResponse.json({
+    const user = mapUserToAuth(data.user)
+
+    return NextResponse.json({
       success: true,
-      user: result.user,
-    });
-
-    // Establecer cookie HTTP-only
-    response.cookies.set(COOKIE_NAME, result.token!, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 días
-      path: '/',
-    });
-
-    return response;
+      user,
+    })
   } catch (error) {
-    console.error('Error en login:', error);
+    console.error('Error en login:', error)
     return NextResponse.json(
       { success: false, error: 'Error interno del servidor' },
       { status: 500 }
-    );
+    )
   }
 }

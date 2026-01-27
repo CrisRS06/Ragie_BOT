@@ -1,201 +1,154 @@
 /**
  * API: GET /api/dashboard/metricas
- * Obtiene métricas en tiempo real para el dashboard
+ * Obtiene metricas en tiempo real para el dashboard
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
-export async function GET(request: NextRequest) {
+export const dynamic = 'force-dynamic'
+
+export async function GET() {
   try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
+
     // Fecha actual y rangos
-    const hoy = new Date();
-    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    const finMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-    const fecha30Dias = new Date();
-    fecha30Dias.setDate(fecha30Dias.getDate() + 30);
+    const hoy = new Date()
+    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString()
+    const finMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString()
+    const fecha30Dias = new Date()
+    fecha30Dias.setDate(fecha30Dias.getDate() + 30)
 
-    // Ejecutar todas las consultas en paralelo
-    const [
-      totalArticulos,
-      articulosConStock,
-      movimientosMes,
-      lotesProximosVencer,
-      lotesVencidos,
-      cortesAnio,
-      ultimosMovimientos,
-      stockBajo,
-    ] = await Promise.all([
-      // Total de artículos activos
-      prisma.articulo.count({ where: { activo: true } }),
+    // Total de articulos activos
+    const { count: totalArticulos } = await supabase
+      .from('articulos')
+      .select('*', { count: 'exact', head: true })
+      .eq('activo', true)
 
-      // Artículos con stock
-      prisma.articulo.count({
-        where: {
-          activo: true,
-          lotes: {
-            some: {
-              activo: true,
-              agotado: false,
-              cantidadDisponible: { gt: 0 },
-            },
-          },
-        },
-      }),
+    // Obtener articulos con sus lotes para calcular stock
+    const { data: articulos } = await supabase
+      .from('articulos')
+      .select('id, stock_minimo')
+      .eq('activo', true)
 
-      // Movimientos del mes actual
-      prisma.movimiento.count({
-        where: {
-          timestamp: { gte: inicioMes, lte: finMes },
-          anulado: false,
-        },
-      }),
+    let articulosConStock = 0
+    let articulosStockBajo = 0
 
-      // Lotes próximos a vencer (30 días)
-      prisma.lote.count({
-        where: {
-          activo: true,
-          agotado: false,
-          cantidadDisponible: { gt: 0 },
-          fechaVencimiento: {
-            gte: hoy,
-            lte: fecha30Dias,
-          },
-        },
-      }),
+    if (articulos) {
+      for (const articulo of articulos) {
+        const { data: lotes } = await supabase
+          .from('lotes')
+          .select('cantidad_disponible')
+          .eq('articulo_id', articulo.id)
+          .eq('activo', true)
+          .gt('cantidad_disponible', 0)
 
-      // Lotes ya vencidos
-      prisma.lote.count({
-        where: {
-          activo: true,
-          agotado: false,
-          cantidadDisponible: { gt: 0 },
-          fechaVencimiento: { lt: hoy },
-        },
-      }),
+        const stockTotal = lotes?.reduce((sum, l) => sum + Number(l.cantidad_disponible), 0) || 0
 
-      // Cortes del año actual
-      prisma.corte.count({
-        where: {
-          timestamp: {
-            gte: new Date(hoy.getFullYear(), 0, 1),
-          },
-        },
-      }),
+        if (stockTotal > 0) {
+          articulosConStock++
+        }
 
-      // Últimos 10 movimientos
-      prisma.movimiento.findMany({
-        where: { anulado: false },
-        include: {
-          articulo: {
-            select: { sku: true, nombre: true },
-          },
-          usuario: {
-            select: { nombre: true },
-          },
-        },
-        orderBy: { timestamp: 'desc' },
-        take: 10,
-      }),
+        if (articulo.stock_minimo && stockTotal <= articulo.stock_minimo) {
+          articulosStockBajo++
+        }
+      }
+    }
 
-      // Artículos con stock bajo
-      prisma.articulo.findMany({
-        where: {
-          activo: true,
-          stockMinimo: { gt: 0 },
-        },
-        include: {
-          lotes: {
-            where: {
-              activo: true,
-              agotado: false,
-              cantidadDisponible: { gt: 0 },
-            },
-            select: { cantidadDisponible: true },
-          },
-        },
-      }),
-    ]);
+    // Movimientos del mes (entradas)
+    const { count: entradasMes } = await supabase
+      .from('movimientos')
+      .select('*', { count: 'exact', head: true })
+      .eq('tipo', 'ENTRADA')
+      .gte('created_at', inicioMes)
+      .lte('created_at', finMes)
 
-    // Calcular artículos con stock bajo
-    const articulosStockBajo = stockBajo.filter((articulo) => {
-      if (articulo.stockMinimo === null) return false;
-      const stockTotal = articulo.lotes.reduce((sum, l) => sum + l.cantidadDisponible, 0);
-      return stockTotal <= articulo.stockMinimo;
-    }).length;
+    // Movimientos del mes (salidas)
+    const { count: salidasMes } = await supabase
+      .from('movimientos')
+      .select('*', { count: 'exact', head: true })
+      .eq('tipo', 'SALIDA')
+      .gte('created_at', inicioMes)
+      .lte('created_at', finMes)
 
-    // Calcular tendencia de movimientos (comparar con mes anterior)
-    const inicioMesAnterior = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
-    const finMesAnterior = new Date(hoy.getFullYear(), hoy.getMonth(), 0);
+    // Lotes proximos a vencer
+    const { count: lotesProximosVencer } = await supabase
+      .from('lotes')
+      .select('*', { count: 'exact', head: true })
+      .eq('activo', true)
+      .gt('cantidad_disponible', 0)
+      .gte('fecha_vencimiento', hoy.toISOString().split('T')[0])
+      .lte('fecha_vencimiento', fecha30Dias.toISOString().split('T')[0])
 
-    const movimientosMesAnterior = await prisma.movimiento.count({
-      where: {
-        timestamp: { gte: inicioMesAnterior, lte: finMesAnterior },
-        anulado: false,
-      },
-    });
+    // Lotes ya vencidos
+    const { count: lotesVencidos } = await supabase
+      .from('lotes')
+      .select('*', { count: 'exact', head: true })
+      .eq('activo', true)
+      .gt('cantidad_disponible', 0)
+      .lt('fecha_vencimiento', hoy.toISOString().split('T')[0])
 
-    const tendenciaMovimientos = movimientosMesAnterior > 0
-      ? Math.round(((movimientosMes - movimientosMesAnterior) / movimientosMesAnterior) * 100)
-      : 0;
+    // Ultimos 10 movimientos
+    const { data: ultimosMovimientos } = await supabase
+      .from('movimientos')
+      .select(`
+        id,
+        tipo,
+        cantidad,
+        created_at,
+        articulos (sku, nombre)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(10)
 
-    // Contar entradas y salidas del mes
-    const [entradasMes, salidasMes] = await Promise.all([
-      prisma.movimiento.count({
-        where: {
-          timestamp: { gte: inicioMes, lte: finMes },
-          tipo: 'ENTRADA',
-          anulado: false,
-        },
-      }),
-      prisma.movimiento.count({
-        where: {
-          timestamp: { gte: inicioMes, lte: finMes },
-          tipo: 'SALIDA',
-          anulado: false,
-        },
-      }),
-    ]);
+    const movimientosMes = (entradasMes || 0) + (salidasMes || 0)
 
     // Verificar si falta informe mensual (del 1 al 3 de cada mes)
-    const diaActual = hoy.getDate();
-    const informeMensualPendiente = diaActual >= 1 && diaActual <= 3;
+    const diaActual = hoy.getDate()
+    const informeMensualPendiente = diaActual >= 1 && diaActual <= 3
 
     return NextResponse.json({
       success: true,
       metricas: {
-        totalArticulos,
+        totalArticulos: totalArticulos || 0,
         articulosConStock,
-        articulosSinStock: totalArticulos - articulosConStock,
+        articulosSinStock: (totalArticulos || 0) - articulosConStock,
         movimientosMes: {
-          entradas: entradasMes,
-          salidas: salidasMes,
+          entradas: entradasMes || 0,
+          salidas: salidasMes || 0,
           total: movimientosMes,
         },
         alertas: {
-          lotesProximosVencer,
-          lotesVencidos,
+          lotesProximosVencer: lotesProximosVencer || 0,
+          lotesVencidos: lotesVencidos || 0,
           articulosStockBajo,
         },
-        cortesAnio,
-        ultimosMovimientos: ultimosMovimientos.map((m) => ({
+        cortesAnio: 0, // Simplificado - cortes eliminados en nueva version
+        ultimosMovimientos: (ultimosMovimientos || []).map((m) => ({
           id: m.id,
           tipo: m.tipo,
           cantidad: m.cantidad,
-          fecha: m.timestamp.toISOString(),
-          articulo: `${m.articulo.sku} - ${m.articulo.nombre}`,
-          usuario: m.usuario?.nombre || 'Sistema',
+          fecha: m.created_at,
+          articulo: m.articulos ? `${m.articulos.sku} - ${m.articulos.nombre}` : 'N/A',
+          usuario: 'Sistema',
         })),
         informeMensualPendiente,
       },
       actualizadoEn: new Date().toISOString(),
-    });
+    })
   } catch (error) {
-    console.error('Error al obtener métricas:', error);
+    console.error('Error al obtener metricas:', error)
     return NextResponse.json(
       { error: 'Error interno del servidor' },
       { status: 500 }
-    );
+    )
   }
 }
-// Force rebuild Sat Dec 13 21:07:07 CST 2025
