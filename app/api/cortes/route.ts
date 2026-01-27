@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
@@ -159,8 +160,8 @@ export async function POST(request: NextRequest) {
     const totalArticulos = articulosUnicos.size
     const totalLotes = lotesActivos.length
 
-    // 5. Crear registro de corte
-    const { data: corte, error: corteError } = await supabase
+    // 5. Crear registro de corte (usar admin client para bypass RLS)
+    const { data: corte, error: corteError } = await supabaseAdmin
       .from('cortes')
       .insert({
         tipo,
@@ -189,19 +190,19 @@ export async function POST(request: NextRequest) {
         ubicacion: lote.ubicacion,
       }))
 
-      const { error: detallesError } = await supabase
+      const { error: detallesError } = await supabaseAdmin
         .from('detalles_corte')
         .insert(detallesCorte)
 
       if (detallesError) {
         // Revertir corte si falla
-        await supabase.from('cortes').delete().eq('id', corte.id)
+        await supabaseAdmin.from('cortes').delete().eq('id', corte.id)
         throw detallesError
       }
     }
 
     // 7. Registrar en audit_log
-    await supabase.from('audit_log').insert({
+    await supabaseAdmin.from('audit_log').insert({
       usuario_id: user.id,
       accion: 'CREAR_CORTE',
       entidad: 'cortes',

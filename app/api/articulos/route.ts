@@ -11,15 +11,28 @@ import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
 
-// Schema de validacion para crear articulo
+// Schema de validacion para crear articulo (acepta camelCase del frontend)
 const createArticuloSchema = z.object({
   sku: z.string().min(3, 'SKU debe tener al menos 3 caracteres').max(50),
   nombre: z.string().min(3, 'Nombre debe tener al menos 3 caracteres').max(200),
-  descripcion_sigaf: z.string().min(10, 'Descripcion SIGAF debe tener al menos 10 caracteres').max(500),
+  descripcionSIGAF: z.string().min(10, 'Descripcion SIGAF debe tener al menos 10 caracteres').max(500),
   descripcion: z.string().max(500).optional().nullable(),
-  unidad_medida: z.string().min(1, 'Unidad de medida es requerida'),
-  stock_minimo: z.number().min(0).optional().nullable(),
-  iva_percent: z.number().min(0).max(1).optional().default(0.13),
+  unidadMedida: z.string().min(1, 'Unidad de medida es requerida'),
+  stockMinimo: z.number().min(0).optional().nullable(),
+  ivaPercent: z.number().min(0).max(1).optional().default(0.13),
+  // Campos opcionales adicionales del formulario
+  codigoSIGAF: z.string().max(100).optional().nullable(),
+  codigoBarras: z.string().max(100).optional().nullable(),
+  marca: z.string().max(100).optional().nullable(),
+  observaciones: z.string().max(500).optional().nullable(),
+  stockMaximo: z.number().min(0).optional().nullable(),
+  requiereVencimiento: z.boolean().optional().default(true),
+  codigoPANI: z.string().max(100).optional().nullable(),
+  codigoSICOP: z.string().max(100).optional().nullable(),
+  codigoSICOPL: z.string().max(100).optional().nullable(),
+  categoria: z.string().max(50).optional().nullable(),
+  precio: z.number().min(0).optional().nullable(),
+  costoReferencia: z.number().min(0).optional().nullable(),
 })
 
 export async function GET() {
@@ -144,16 +157,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Crear articulo usando admin client (bypass RLS)
+    // Mapear camelCase del frontend a snake_case de la base de datos
     const { data: articulo, error } = await supabaseAdmin
       .from('articulos')
       .insert({
         sku: data.sku,
         nombre: data.nombre,
         descripcion: data.descripcion,
-        descripcion_sigaf: data.descripcion_sigaf,
-        unidad_medida: data.unidad_medida,
-        stock_minimo: data.stock_minimo,
-        iva_percent: data.iva_percent,
+        descripcion_sigaf: data.descripcionSIGAF,
+        unidad_medida: data.unidadMedida,
+        stock_minimo: data.stockMinimo,
+        iva_percent: data.ivaPercent,
+        marca: data.marca,
         activo: true,
       })
       .select()
