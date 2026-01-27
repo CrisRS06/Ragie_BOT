@@ -71,15 +71,19 @@ export function useRoleAccess(options: UseRoleAccessOptions = {}): UseRoleAccess
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
     const checkAccess = async () => {
       try {
-        setLoading(true);
         const response = await fetch('/api/auth/me');
         const data = await response.json();
+
+        if (!isMounted) return;
 
         if (!data.success || !data.user) {
           setError('No autenticado');
           setHasAccess(false);
+          setLoading(false);
           if (redirectTo) {
             router.push(redirectTo);
           }
@@ -100,6 +104,7 @@ export function useRoleAccess(options: UseRoleAccessOptions = {}): UseRoleAccess
           if (!roleMatch) {
             setHasAccess(false);
             setError('No tiene permisos para acceder a esta sección');
+            setLoading(false);
             if (redirectTo) {
               router.push(redirectTo);
             }
@@ -110,10 +115,11 @@ export function useRoleAccess(options: UseRoleAccessOptions = {}): UseRoleAccess
         // Verificar acceso por permiso específico
         if (requiredPermission) {
           const permisos = PERMISOS_POR_ROL[userData.rol] || [];
-          const hasPermission = permisos.includes(requiredPermission);
-          if (!hasPermission) {
+          const permissionGranted = permisos.includes(requiredPermission);
+          if (!permissionGranted) {
             setHasAccess(false);
             setError('No tiene permisos para realizar esta acción');
+            setLoading(false);
             if (redirectTo) {
               router.push(redirectTo);
             }
@@ -123,16 +129,22 @@ export function useRoleAccess(options: UseRoleAccessOptions = {}): UseRoleAccess
 
         setHasAccess(true);
         setError(null);
+        setLoading(false);
       } catch (err) {
         console.error('Error al verificar acceso:', err);
-        setError('Error al verificar permisos');
-        setHasAccess(false);
-      } finally {
-        setLoading(false);
+        if (isMounted) {
+          setError('Error al verificar permisos');
+          setHasAccess(false);
+          setLoading(false);
+        }
       }
     };
 
     checkAccess();
+
+    return () => {
+      isMounted = false;
+    };
   }, [requiredRoles, requiredPermission, redirectTo, router]);
 
   return { user, loading, hasAccess, error };
