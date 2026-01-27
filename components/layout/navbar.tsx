@@ -2,11 +2,13 @@
 
 /**
  * Navbar Global - Navegación principal del sistema
+ * Usa AuthContext para obtener el usuario (evita llamadas redundantes a /api/auth/me)
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Home,
   Package,
@@ -117,22 +119,11 @@ export function Navbar() {
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
-  const [user, setUser] = useState<{ nombre: string; email: string; rolDisplay: string } | null>(null);
-
-  useEffect(() => {
-    // Obtener información del usuario
-    fetch('/api/auth/me')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setUser(data.user);
-        }
-      })
-      .catch(() => {});
-  }, []);
+  const { user, refreshUser } = useAuth();
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
+    await refreshUser(); // Limpiar el estado del usuario en el contexto
     router.push('/login');
     router.refresh();
   };
