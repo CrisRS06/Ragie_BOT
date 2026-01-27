@@ -153,14 +153,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Demo credentials */}
-        <div className="mt-4 p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg">
-          <p className="text-xs text-gray-600 dark:text-gray-400 text-center">
-            <strong>Credenciales de prueba:</strong>
-            <br />
-            admin@bodegaje.example.com / Admin2024Secure
-          </p>
-        </div>
       </div>
     </div>
   );
