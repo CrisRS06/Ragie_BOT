@@ -13,10 +13,11 @@ export const dynamic = 'force-dynamic'
 
 // Schema de validacion para crear articulo (acepta camelCase del frontend)
 const createArticuloSchema = z.object({
-  sku: z.string().min(3, 'SKU debe tener al menos 3 caracteres').max(50),
+  sku: z.string().min(1, 'El código interno es requerido').max(50).transform((val) => val.trim()),
   nombre: z.string().min(3, 'Nombre debe tener al menos 3 caracteres').max(200),
-  descripcionSIGAF: z.string().min(10, 'Descripcion SIGAF debe tener al menos 10 caracteres').max(500),
+  descripcionSIGAF: z.string().max(500).optional().nullable(),
   descripcion: z.string().max(500).optional().nullable(),
+  proveedorId: z.string().uuid().optional().nullable(),
   unidadMedida: z.string().min(1, 'Unidad de medida es requerida'),
   stockMinimo: z.number().min(0).optional().nullable(),
   ivaPercent: z.number().min(0).max(1).optional().default(0.13),
@@ -47,10 +48,10 @@ export async function GET() {
       )
     }
 
-    // Obtener articulos
+    // Obtener articulos con proveedor
     const { data: articulos, error } = await supabase
       .from('articulos')
-      .select('*')
+      .select('*, proveedores(id, codigo, nombre)')
       .eq('activo', true)
       .order('nombre')
 
@@ -85,6 +86,7 @@ export async function GET() {
     // Mapear artículos con su stock (sin queries adicionales)
     const articulosConStock = (articulos || []).map((articulo) => {
       const stockInfo = stockPorArticulo[articulo.id] || { total: 0, count: 0 }
+      const proveedor = articulo.proveedores as { id: string; codigo: string; nombre: string } | null
 
       return {
         id: articulo.id,
@@ -97,6 +99,12 @@ export async function GET() {
         activo: articulo.activo,
         stockMinimo: articulo.stock_minimo,
         marca: articulo.marca,
+        proveedorId: articulo.proveedor_id,
+        proveedor: proveedor ? {
+          id: proveedor.id,
+          codigo: proveedor.codigo,
+          nombre: proveedor.nombre,
+        } : null,
         stockTotal: stockInfo.total,
         lotesActivos: stockInfo.count,
       }
@@ -174,11 +182,12 @@ export async function POST(request: NextRequest) {
         sku: data.sku,
         nombre: data.nombre,
         descripcion: data.descripcion,
-        descripcion_sigaf: data.descripcionSIGAF,
+        descripcion_sigaf: data.descripcionSIGAF || null,
         unidad_medida: data.unidadMedida,
         stock_minimo: data.stockMinimo,
         iva_percent: data.ivaPercent,
         marca: data.marca,
+        proveedor_id: data.proveedorId || null,
         activo: true,
       })
       .select()

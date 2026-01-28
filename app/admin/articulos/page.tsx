@@ -19,13 +19,18 @@ interface Articulo {
   id: string;
   sku: string;
   nombre: string;
-  descripcionSIGAF: string;
   unidadMedida: string;
   stockMinimo: number | null;
   stockMaximo: number | null;
   stockTotal: number;
   lotesActivos: number;
   activo: boolean;
+  proveedorId?: string | null;
+  proveedor?: {
+    id: string;
+    codigo: string;
+    nombre: string;
+  } | null;
 }
 
 export default function AdminArticulosPage() {
@@ -106,8 +111,7 @@ export default function AdminArticulosPage() {
   const filteredArticulos = articulos.filter(
     (a) =>
       a.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.descripcionSIGAF.toLowerCase().includes(searchTerm.toLowerCase())
+      a.nombre.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -167,7 +171,7 @@ export default function AdminArticulosPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 type="text"
-                placeholder="Buscar por SKU, nombre o descripción SIGAF..."
+                placeholder="Buscar por código o nombre..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"

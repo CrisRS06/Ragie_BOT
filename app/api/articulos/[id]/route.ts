@@ -15,11 +15,12 @@ export const dynamic = 'force-dynamic'
 // Schema de validacion para actualizar articulo
 const updateArticuloSchema = z.object({
   nombre: z.string().min(3, 'Nombre debe tener al menos 3 caracteres').max(200).optional(),
-  descripcion_sigaf: z.string().min(10, 'Descripcion SIGAF debe tener al menos 10 caracteres').max(500).optional(),
+  descripcion_sigaf: z.string().max(500).optional().nullable(),
   descripcion: z.string().max(500).optional().nullable(),
   unidad_medida: z.string().optional(),
   stock_minimo: z.number().min(0).optional().nullable(),
   iva_percent: z.number().min(0).max(1).optional(),
+  proveedor_id: z.string().uuid().optional().nullable(),
 })
 
 interface RouteParams {

@@ -138,19 +138,19 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo y nombre */}
-          <div className="flex items-center">
+          <div className="flex items-center flex-shrink-0">
             <Link
               href="/dashboard"
               className="flex items-center space-x-2 hover:opacity-80 transition"
             >
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
                 <span className="text-white font-bold text-sm">PEPS</span>
               </div>
-              <div className="hidden sm:block">
-                <div className="text-sm font-semibold text-gray-900 dark:text-white">
+              <div className="hidden sm:block whitespace-nowrap">
+                <div className="text-sm font-semibold text-gray-900 dark:text-white leading-tight">
                   Sistema de Inventario
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">PANI Costa Rica</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 leading-tight">PANI Costa Rica</div>
               </div>
             </Link>
           </div>

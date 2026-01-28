@@ -16,7 +16,7 @@ interface Articulo {
   sku: string;
   nombre: string;
   descripcion?: string | null;
-  descripcionSIGAF: string;
+  descripcionSIGAF?: string | null;
   codigoSIGAF?: string | null;
   // FASE 1: Campos adicionales PANI
   codigoBarras?: string | null;
@@ -27,6 +27,8 @@ interface Articulo {
   stockMinimo?: number | null;
   stockMaximo?: number | null;
   requiereVencimiento: boolean;
+  // Proveedor asociado
+  proveedorId?: string | null;
   // FASE 2: Campos adicionales Bodega en Custodia
   codigoPANI?: string | null;
   codigoSICOP?: string | null;
@@ -34,6 +36,12 @@ interface Articulo {
   categoria?: string | null;
   precio?: number | null;
   costoReferencia?: number | null;
+}
+
+interface Proveedor {
+  id: string;
+  codigo: string;
+  nombre: string;
 }
 
 interface ArticuloFormProps {
@@ -78,6 +86,10 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // Proveedores para el dropdown
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  const [loadingProveedores, setLoadingProveedores] = useState(true);
+
   // Campos del formulario
   const [formData, setFormData] = useState({
     sku: '',
@@ -85,6 +97,8 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
     descripcion: '',
     descripcionSIGAF: '',
     codigoSIGAF: '',
+    // Proveedor asociado
+    proveedorId: '',
     // FASE 1: Campos adicionales PANI
     codigoBarras: '',
     marca: '',
@@ -106,6 +120,24 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
   // Errores de validación por campo
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+  // Cargar proveedores al montar
+  useEffect(() => {
+    const fetchProveedores = async () => {
+      try {
+        const response = await fetch('/api/proveedores');
+        const data = await response.json();
+        if (data.success) {
+          setProveedores(data.data);
+        }
+      } catch (err) {
+        console.error('Error al cargar proveedores:', err);
+      } finally {
+        setLoadingProveedores(false);
+      }
+    };
+    fetchProveedores();
+  }, []);
+
   // Cargar datos del artículo si es modo edición
   useEffect(() => {
     if (mode === 'edit' && articulo) {
@@ -115,6 +147,7 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
         descripcion: articulo.descripcion || '',
         descripcionSIGAF: articulo.descripcionSIGAF || '',
         codigoSIGAF: articulo.codigoSIGAF || '',
+        proveedorId: articulo.proveedorId || '',
         // FASE 1: Campos adicionales PANI
         codigoBarras: articulo.codigoBarras || '',
         marca: articulo.marca || '',
@@ -156,16 +189,12 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!formData.sku || formData.sku.length < 3) {
-      errors.sku = 'SKU debe tener al menos 3 caracteres';
+    if (!formData.sku || formData.sku.trim().length < 1) {
+      errors.sku = 'El código interno es requerido';
     }
 
     if (!formData.nombre || formData.nombre.length < 3) {
       errors.nombre = 'Nombre debe tener al menos 3 caracteres';
-    }
-
-    if (!formData.descripcionSIGAF || formData.descripcionSIGAF.length < 10) {
-      errors.descripcionSIGAF = 'Descripción SIGAF debe tener al menos 10 caracteres';
     }
 
     if (!formData.unidadMedida) {
@@ -208,8 +237,9 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
         sku: formData.sku.trim(),
         nombre: formData.nombre.trim(),
         descripcion: formData.descripcion?.trim() || null,
-        descripcionSIGAF: formData.descripcionSIGAF.trim(),
+        descripcionSIGAF: formData.descripcionSIGAF?.trim() || null,
         codigoSIGAF: formData.codigoSIGAF?.trim() || null,
+        proveedorId: formData.proveedorId || null,
         // FASE 1: Campos adicionales PANI
         codigoBarras: formData.codigoBarras?.trim() || null,
         marca: formData.marca?.trim() || null,
@@ -308,23 +338,23 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
         <h3 className="text-lg font-medium text-gray-900 mb-4">Información Básica</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* SKU */}
+          {/* Código Interno */}
           <div>
             <Label htmlFor="sku" required>
-              SKU (Código Interno)
+              Código Interno
             </Label>
             <Input
               id="sku"
               name="sku"
               type="text"
-              placeholder="Ej: ART-001"
+              placeholder="Ej: 001, ABC-123, mi-producto"
               value={formData.sku}
               onChange={handleChange}
               disabled={loading || mode === 'edit'}
               error={fieldErrors.sku}
             />
             {mode === 'edit' && (
-              <p className="mt-1 text-xs text-gray-500">El SKU no se puede modificar</p>
+              <p className="mt-1 text-xs text-gray-500">El código interno no se puede modificar</p>
             )}
           </div>
 
@@ -364,53 +394,31 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
         </div>
       </div>
 
-      {/* Sección: Información SIGAF */}
+      {/* Sección: Proveedor Asociado */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Información SIGAF</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Proveedor Asociado</h3>
 
-        <div className="space-y-4">
-          {/* Descripción SIGAF */}
-          <div>
-            <Label htmlFor="descripcionSIGAF" required>
-              Descripción SIGAF
-            </Label>
-            <textarea
-              id="descripcionSIGAF"
-              name="descripcionSIGAF"
-              rows={3}
-              className={`mt-1 block w-full rounded-md shadow-sm text-sm ${
-                fieldErrors.descripcionSIGAF
-                  ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                  : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
-              }`}
-              placeholder="Texto exacto según catálogo SIGAF..."
-              value={formData.descripcionSIGAF}
-              onChange={handleChange}
-              disabled={loading}
-            />
-            {fieldErrors.descripcionSIGAF && (
-              <p className="mt-1 text-sm text-red-600">{fieldErrors.descripcionSIGAF}</p>
-            )}
-            <p className="mt-1 text-xs text-gray-500">
-              Esta descripción debe coincidir exactamente con el catálogo SIGAF
-            </p>
-          </div>
-
-          {/* Código SIGAF */}
-          <div className="max-w-xs">
-            <Label htmlFor="codigoSIGAF">
-              Código SIGAF (Opcional)
-            </Label>
-            <Input
-              id="codigoSIGAF"
-              name="codigoSIGAF"
-              type="text"
-              placeholder="Ej: SIGAF-12345"
-              value={formData.codigoSIGAF}
-              onChange={handleChange}
-              disabled={loading}
-            />
-          </div>
+        <div className="max-w-md">
+          <Label htmlFor="proveedorId">Proveedor</Label>
+          <Select
+            id="proveedorId"
+            name="proveedorId"
+            value={formData.proveedorId}
+            onChange={handleChange}
+            disabled={loading || loadingProveedores}
+          >
+            <option value="">
+              {loadingProveedores ? 'Cargando proveedores...' : 'Sin proveedor asignado'}
+            </option>
+            {proveedores.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.codigo} - {p.nombre}
+              </option>
+            ))}
+          </Select>
+          <p className="mt-1 text-xs text-gray-500">
+            Opcional: Asocie este artículo a un proveedor específico
+          </p>
         </div>
       </div>
 

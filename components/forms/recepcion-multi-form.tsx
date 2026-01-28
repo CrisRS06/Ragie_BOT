@@ -25,7 +25,6 @@ interface Articulo {
   id: string;
   sku: string;
   nombre: string;
-  descripcionSIGAF: string;
   unidadMedida: string;
   ivaPercent: number;
 }
@@ -508,11 +507,6 @@ export function RecepcionMultiForm() {
                         </option>
                       ))}
                     </Select>
-                    {articuloSeleccionado && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {articuloSeleccionado.descripcionSIGAF}
-                      </p>
-                    )}
                   </div>
 
                   {/* Cantidad */}

@@ -15,12 +15,13 @@ export type Database = {
           sku: string
           nombre: string
           descripcion: string | null
-          descripcion_sigaf: string
+          descripcion_sigaf: string | null
           unidad_medida: string
           iva_percent: number
           activo: boolean
           stock_minimo: number | null
           marca: string | null
+          proveedor_id: string | null
           created_at: string
           updated_at: string
         }
@@ -29,12 +30,13 @@ export type Database = {
           sku: string
           nombre: string
           descripcion?: string | null
-          descripcion_sigaf: string
+          descripcion_sigaf?: string | null
           unidad_medida: string
           iva_percent?: number
           activo?: boolean
           stock_minimo?: number | null
           marca?: string | null
+          proveedor_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -43,16 +45,25 @@ export type Database = {
           sku?: string
           nombre?: string
           descripcion?: string | null
-          descripcion_sigaf?: string
+          descripcion_sigaf?: string | null
           unidad_medida?: string
           iva_percent?: number
           activo?: boolean
           stock_minimo?: number | null
           marca?: string | null
+          proveedor_id?: string | null
           created_at?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "articulos_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "proveedores"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       lotes: {
         Row: {

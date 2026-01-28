@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
 
     // Agrupar movimientos por articulo
     const movimientosPorArticulo: Record<string, {
-      articulo: { id: string; sku: string; nombre: string; descripcion_sigaf: string; unidad_medida: string } | undefined
+      articulo: { id: string; sku: string; nombre: string; descripcion_sigaf: string | null; unidad_medida: string } | undefined
       entradas: number
       salidas: number
       ajustes: number

@@ -32,22 +32,15 @@ export type UnidadMedida = z.infer<typeof UnidadMedidaEnum>;
 export const createArticuloSchema = z.object({
   sku: z
     .string()
-    .min(3, 'El SKU debe tener al menos 3 caracteres')
-    .max(50, 'El SKU no puede exceder 50 caracteres')
-    .regex(/^[A-Z0-9\-]+$/, 'El SKU solo puede contener letras mayúsculas, números y guiones'),
+    .min(1, 'El código interno es requerido')
+    .max(50, 'El código interno no puede exceder 50 caracteres')
+    .transform((val) => val.trim()),
   nombre: z
     .string()
     .min(5, 'El nombre debe tener al menos 5 caracteres')
     .max(200, 'El nombre no puede exceder 200 caracteres'),
-  descripcionSIGAF: z
-    .string()
-    .min(10, 'La descripción SIGAF debe tener al menos 10 caracteres')
-    .max(500, 'La descripción SIGAF no puede exceder 500 caracteres')
-    .regex(
-      /^[A-Z0-9\s\-.,()]+$/,
-      'La descripción SIGAF solo puede contener mayúsculas, números, espacios y puntuación básica'
-    ),
-  codigoSIGAF: z.string().optional(),
+  descripcionSIGAF: z.string().max(500).optional().nullable(),
+  codigoSIGAF: z.string().max(100).optional().nullable(),
   // FASE 1: Campos adicionales PANI
   codigoBarras: z.string().max(50, 'El código de barras no puede exceder 50 caracteres').optional().nullable(),
   marca: z.string().max(100, 'La marca no puede exceder 100 caracteres').optional().nullable(),
@@ -84,7 +77,7 @@ export const articuloResponseSchema = z.object({
   id: z.string(),
   sku: z.string(),
   nombre: z.string(),
-  descripcionSIGAF: z.string(),
+  descripcionSIGAF: z.string().nullable(),
   codigoSIGAF: z.string().nullable(),
   // FASE 1: Campos adicionales PANI
   codigoBarras: z.string().nullable(),
@@ -130,7 +123,7 @@ export const importArticulosCSVSchema = z.object({
     z.object({
       sku: z.string().min(1),
       nombre: z.string().min(1),
-      descripcionSIGAF: z.string().min(1),
+      descripcionSIGAF: z.string().optional(),
       codigoSIGAF: z.string().optional(),
       unidadMedida: z.string(),
       stockMinimo: z.string().optional(),

@@ -16,7 +16,6 @@ interface Articulo {
   id: string;
   sku: string;
   nombre: string;
-  descripcionSIGAF: string;
   unidadMedida: string;
   stockTotal: number;
 }
@@ -399,8 +398,7 @@ export function DespachoForm() {
       {/* Info del artículo seleccionado */}
       {articuloSeleccionado && (
         <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-          <p className="text-sm font-medium text-blue-900">Descripción SIGAF:</p>
-          <p className="text-sm text-blue-800">{articuloSeleccionado.descripcionSIGAF}</p>
+          <p className="text-sm font-medium text-blue-900">{articuloSeleccionado.nombre}</p>
           <div className="mt-2 flex gap-4 text-xs text-blue-700">
             <span>Unidad: {articuloSeleccionado.unidadMedida}</span>
             <span className="font-bold">Stock disponible: {stockTotal}</span>
