@@ -109,6 +109,12 @@ export default function DespachosPage() {
   const handleAnular = async () => {
     if (!despachoAnular || !motivoAnulacion.trim()) return;
 
+    // Client-side validation - immediate feedback
+    if (motivoAnulacion.trim().length < 10) {
+      setError('El motivo debe tener al menos 10 caracteres');
+      return;
+    }
+
     try {
       setAnulando(true);
       const response = await fetch(`/api/despachos/${despachoAnular.id}/anular`, {
@@ -124,7 +130,12 @@ export default function DespachosPage() {
         setDespachoAnular(null);
         setMotivoAnulacion('');
       } else {
-        setError(data.error || 'Error al anular despacho');
+        // Extract specific message from formatted errors
+        let errorMessage = data.error || 'Error al anular despacho';
+        if (data.errors?.motivo?._errors?.length > 0) {
+          errorMessage = data.errors.motivo._errors[0];
+        }
+        setError(errorMessage);
       }
     } catch (err) {
       setError('Error al anular despacho');
@@ -415,6 +426,7 @@ export default function DespachosPage() {
                   value={motivoAnulacion}
                   onChange={(e) => setMotivoAnulacion(e.target.value)}
                 />
+                <p className="mt-1 text-xs text-gray-500">Mínimo 10 caracteres</p>
               </div>
             </div>
           }

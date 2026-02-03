@@ -140,8 +140,8 @@ export async function GET(request: NextRequest) {
       .from('movimientos')
       .select(`
         *,
-        articulos (sku, nombre, unidad_medida),
-        lotes (numero_lote, fecha_vencimiento)
+        articulo:articulos(sku, nombre, unidad_medida),
+        lote:lotes(numero_lote, fecha_vencimiento)
       `, { count: 'exact' })
       .eq('tipo', 'SALIDA')
       .order('created_at', { ascending: false })
@@ -164,8 +164,48 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Fetch unidades_receptoras separately (Supabase doesn't auto-detect this FK)
+    const unidadIds = [...new Set((movimientos || []).map(m => m.unidad_receptora_id).filter((id): id is string => id !== null))]
+    const { data: unidades } = unidadIds.length > 0
+      ? await supabase
+          .from('unidades_receptoras')
+          .select('id, codigo, nombre')
+          .in('id', unidadIds)
+      : { data: [] }
+    const unidadesMap = new Map((unidades || []).map(u => [u.id, u]))
+
+    // Transform response to camelCase for frontend
+    const despachosTransformed = (movimientos || []).map((mov) => {
+      const articulo = mov.articulo as { sku: string; nombre: string; unidad_medida: string } | null
+      const lote = mov.lote as { numero_lote: string | null; fecha_vencimiento: string } | null
+      const unidadReceptora = mov.unidad_receptora_id ? unidadesMap.get(mov.unidad_receptora_id) : null
+
+      return {
+        id: mov.id,
+        cantidad: mov.cantidad,
+        timestamp: mov.created_at,
+        anulado: mov.anulado,
+        motivoAnulacion: mov.motivo_anulacion,
+        receptorNombre: mov.receptor_nombre,
+        receptorCedula: mov.receptor_cedula,
+        articulo: articulo ? {
+          sku: articulo.sku,
+          nombre: articulo.nombre,
+          unidadMedida: articulo.unidad_medida,
+        } : null,
+        lote: lote ? {
+          numeroLote: lote.numero_lote,
+          fechaVencimiento: lote.fecha_vencimiento,
+        } : null,
+        unidadReceptora: unidadReceptora ? {
+          codigo: unidadReceptora.codigo,
+          nombre: unidadReceptora.nombre,
+        } : null,
+      }
+    })
+
     return NextResponse.json({
-      despachos: movimientos,
+      despachos: despachosTransformed,
       total: count || 0,
       limite,
       offset,
