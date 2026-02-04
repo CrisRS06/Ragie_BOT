@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { BodegaSelector } from '@/components/ui/bodega-selector';
+import { ArticuloSelector, Articulo } from '@/components/ui/articulo-selector';
 import {
   Plus,
   Trash2,
@@ -21,14 +22,6 @@ import {
   Package,
   Loader2,
 } from 'lucide-react';
-
-interface Articulo {
-  id: string;
-  sku: string;
-  nombre: string;
-  unidadMedida: string;
-  stockTotal: number;
-}
 
 interface UnidadReceptora {
   id: string;
@@ -41,6 +34,7 @@ interface UnidadReceptora {
 interface LineaDespacho {
   id: string;
   articuloId: string;
+  articulo: Articulo | null;
   cantidad: string;
 }
 
@@ -55,12 +49,12 @@ interface ResultadoLinea {
 const emptyLinea = (): LineaDespacho => ({
   id: crypto.randomUUID(),
   articuloId: '',
+  articulo: null,
   cantidad: '',
 });
 
 export function DespachoMultiForm() {
   // Estado de datos de referencia
-  const [articulos, setArticulos] = useState<Articulo[]>([]);
   const [unidadesReceptoras, setUnidadesReceptoras] = useState<UnidadReceptora[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
@@ -85,23 +79,10 @@ export function DespachoMultiForm() {
 
   // Cargar datos al montar
   useEffect(() => {
-    Promise.all([fetchArticulos(), fetchUnidadesReceptoras()]).finally(() => {
+    fetchUnidadesReceptoras().finally(() => {
       setLoadingData(false);
     });
   }, []);
-
-  const fetchArticulos = async () => {
-    try {
-      const response = await fetch('/api/articulos');
-      const data = await response.json();
-      if (data.success) {
-        // Solo artículos con stock
-        setArticulos(data.data.filter((a: Articulo) => a.stockTotal > 0));
-      }
-    } catch (err) {
-      console.error('Error al cargar artículos:', err);
-    }
-  };
 
   const fetchUnidadesReceptoras = async () => {
     try {
@@ -130,7 +111,7 @@ export function DespachoMultiForm() {
 
   // Actualizar línea
   const actualizarLinea = useCallback(
-    (id: string, campo: keyof LineaDespacho, valor: string) => {
+    (id: string, campo: keyof LineaDespacho, valor: string | Articulo | null) => {
       setLineas((prev) =>
         prev.map((l) => (l.id === id ? { ...l, [campo]: valor } : l))
       );
@@ -143,13 +124,32 @@ export function DespachoMultiForm() {
     []
   );
 
+  // Manejador específico para cambio de artículo en una línea
+  const handleArticuloLineaChange = useCallback(
+    (lineaId: string, articulo: Articulo | null) => {
+      setLineas((prev) =>
+        prev.map((l) =>
+          l.id === lineaId
+            ? { ...l, articuloId: articulo?.id || '', articulo }
+            : l
+        )
+      );
+      // Limpiar errores del campo
+      setFieldErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[`linea_${lineaId}_articuloId`];
+        return newErrors;
+      });
+    },
+    []
+  );
+
   // Obtener stock disponible para un artículo
   const getStockDisponible = useCallback(
-    (articuloId: string) => {
-      const articulo = articulos.find((a) => a.id === articuloId);
-      return articulo?.stockTotal || 0;
+    (linea: LineaDespacho) => {
+      return linea.articulo?.stockTotal || 0;
     },
-    [articulos]
+    []
   );
 
   // Validar formulario
@@ -179,7 +179,7 @@ export function DespachoMultiForm() {
       if (!linea.cantidad || cantidad <= 0) {
         errors[`linea_${linea.id}_cantidad`] = 'La cantidad debe ser mayor a 0';
       } else {
-        const stockDisponible = getStockDisponible(linea.articuloId);
+        const stockDisponible = getStockDisponible(linea);
         if (cantidad > stockDisponible) {
           errors[`linea_${linea.id}_cantidad`] = `Stock insuficiente. Disponible: ${stockDisponible}`;
         }
@@ -213,8 +213,6 @@ export function DespachoMultiForm() {
 
       // Procesar todas las líneas en paralelo usando Promise.all
       const promesas = lineasValidas.map(async (linea) => {
-        const articulo = articulos.find((a) => a.id === linea.articuloId);
-
         try {
           const response = await fetch('/api/despachos', {
             method: 'POST',
@@ -234,7 +232,7 @@ export function DespachoMultiForm() {
 
           if (!response.ok || !data.success) {
             return {
-              articuloNombre: articulo?.nombre || linea.articuloId,
+              articuloNombre: linea.articulo?.nombre || linea.articuloId,
               cantidad: parseFloat(linea.cantidad),
               lotesConsumidos: 0,
               exitoso: false,
@@ -242,7 +240,7 @@ export function DespachoMultiForm() {
             } as ResultadoLinea;
           } else {
             return {
-              articuloNombre: articulo?.nombre || linea.articuloId,
+              articuloNombre: linea.articulo?.nombre || linea.articuloId,
               cantidad: parseFloat(linea.cantidad),
               lotesConsumidos: data.lotesConsumidos?.length || 0,
               exitoso: true,
@@ -250,11 +248,11 @@ export function DespachoMultiForm() {
           }
         } catch (err) {
           return {
-            articuloNombre: articulo?.nombre || linea.articuloId,
+            articuloNombre: linea.articulo?.nombre || linea.articuloId,
             cantidad: parseFloat(linea.cantidad),
             lotesConsumidos: 0,
             exitoso: false,
-            error: 'Error de conexión',
+            error: 'Error de conexion',
           } as ResultadoLinea;
         }
       });
@@ -277,9 +275,6 @@ export function DespachoMultiForm() {
         setBodegaId('');
         setObservaciones('');
         setLineas([emptyLinea()]);
-
-        // Recargar artículos para actualizar stock
-        setTimeout(() => fetchArticulos(), 500);
       }
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -471,8 +466,7 @@ export function DespachoMultiForm() {
 
         <div className="space-y-4">
           {lineas.map((linea, index) => {
-            const articuloSeleccionado = articulos.find((a) => a.id === linea.articuloId);
-            const stockDisponible = articuloSeleccionado?.stockTotal || 0;
+            const stockDisponible = getStockDisponible(linea);
 
             return (
               <div
@@ -481,7 +475,7 @@ export function DespachoMultiForm() {
               >
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-medium text-gray-700">
-                    Línea #{index + 1}
+                    Linea #{index + 1}
                   </span>
                   {lineas.length > 1 && (
                     <Button
@@ -499,21 +493,17 @@ export function DespachoMultiForm() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Artículo */}
                   <div className="md:col-span-2">
-                    <Label htmlFor={`articulo_${linea.id}`} required>Artículo</Label>
-                    <Select
-                      id={`articulo_${linea.id}`}
+                    <ArticuloSelector
                       value={linea.articuloId}
-                      onChange={(e) => actualizarLinea(linea.id, 'articuloId', e.target.value)}
-                      disabled={loading}
+                      onChange={(articulo) => handleArticuloLineaChange(linea.id, articulo)}
+                      bodegaId={bodegaId}
+                      soloConStock={true}
+                      disabled={loading || !bodegaId}
+                      required
                       error={fieldErrors[`linea_${linea.id}_articuloId`]}
-                    >
-                      <option value="">Seleccione un artículo</option>
-                      {articulos.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.sku} - {a.nombre} (Stock: {a.stockTotal} {a.unidadMedida})
-                        </option>
-                      ))}
-                    </Select>
+                      label="Articulo"
+                      placeholder={!bodegaId ? 'Primero seleccione una bodega' : 'Buscar articulo con stock...'}
+                    />
                   </div>
 
                   {/* Cantidad */}
@@ -525,15 +515,15 @@ export function DespachoMultiForm() {
                       step="1"
                       min="1"
                       max={stockDisponible}
-                      placeholder={stockDisponible > 0 ? `Máx: ${stockDisponible}` : '0'}
+                      placeholder={stockDisponible > 0 ? `Max: ${stockDisponible}` : '0'}
                       value={linea.cantidad}
                       onChange={(e) => actualizarLinea(linea.id, 'cantidad', e.target.value)}
                       disabled={loading || !linea.articuloId}
                       error={fieldErrors[`linea_${linea.id}_cantidad`]}
                     />
-                    {articuloSeleccionado && (
+                    {linea.articulo && (
                       <p className="text-xs text-gray-500 mt-1">
-                        {articuloSeleccionado.unidadMedida} - Disponible: {stockDisponible}
+                        {linea.articulo.unidadMedida} - Disponible: {stockDisponible}
                       </p>
                     )}
                   </div>

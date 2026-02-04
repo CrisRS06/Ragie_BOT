@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { BodegaSelector } from '@/components/ui/bodega-selector';
+import { ArticuloSelector, Articulo } from '@/components/ui/articulo-selector';
 import {
   Plus,
   Trash2,
@@ -22,14 +23,6 @@ import {
   Loader2,
 } from 'lucide-react';
 
-interface Articulo {
-  id: string;
-  sku: string;
-  nombre: string;
-  unidadMedida: string;
-  ivaPercent: number;
-}
-
 interface Proveedor {
   id: string;
   codigo: string;
@@ -39,6 +32,7 @@ interface Proveedor {
 interface LineaFormData {
   id: string; // ID temporal para React keys
   articuloId: string;
+  articulo: Articulo | null; // Artículo seleccionado completo
   cantidad: string;
   costoUnitario: string;
   fechaVencimiento: string;
@@ -49,6 +43,7 @@ interface LineaFormData {
 const emptyLinea = (): LineaFormData => ({
   id: crypto.randomUUID(),
   articuloId: '',
+  articulo: null,
   cantidad: '',
   costoUnitario: '',
   fechaVencimiento: '',
@@ -58,7 +53,6 @@ const emptyLinea = (): LineaFormData => ({
 
 export function RecepcionMultiForm() {
   // Estado de datos de referencia
-  const [articulos, setArticulos] = useState<Articulo[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
@@ -83,22 +77,10 @@ export function RecepcionMultiForm() {
 
   // Cargar datos al montar
   useEffect(() => {
-    Promise.all([fetchArticulos(), fetchProveedores()]).finally(() => {
+    fetchProveedores().finally(() => {
       setLoadingData(false);
     });
   }, []);
-
-  const fetchArticulos = async () => {
-    try {
-      const response = await fetch('/api/articulos');
-      const data = await response.json();
-      if (data.success) {
-        setArticulos(data.data);
-      }
-    } catch (err) {
-      console.error('Error al cargar artículos:', err);
-    }
-  };
 
   const fetchProveedores = async () => {
     try {
@@ -127,7 +109,7 @@ export function RecepcionMultiForm() {
 
   // Actualizar línea
   const actualizarLinea = useCallback(
-    (id: string, campo: keyof LineaFormData, valor: string) => {
+    (id: string, campo: keyof LineaFormData, valor: string | Articulo | null) => {
       setLineas((prev) =>
         prev.map((l) => (l.id === id ? { ...l, [campo]: valor } : l))
       );
@@ -141,19 +123,38 @@ export function RecepcionMultiForm() {
     []
   );
 
+  // Manejador específico para cambio de artículo en una línea
+  const handleArticuloLineaChange = useCallback(
+    (lineaId: string, articulo: Articulo | null) => {
+      setLineas((prev) =>
+        prev.map((l) =>
+          l.id === lineaId
+            ? { ...l, articuloId: articulo?.id || '', articulo }
+            : l
+        )
+      );
+      // Limpiar errores del campo
+      setFieldErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[`linea_${lineaId}_articuloId`];
+        return newErrors;
+      });
+    },
+    []
+  );
+
   // Calcular totales
   const calcularTotales = useCallback(() => {
     let subtotalSinIva = 0;
     let montoIva = 0;
 
     for (const linea of lineas) {
-      const articulo = articulos.find((a) => a.id === linea.articuloId);
-      if (!articulo) continue;
+      if (!linea.articulo) continue;
 
       const cantidad = parseFloat(linea.cantidad) || 0;
       const costoUnitario = parseFloat(linea.costoUnitario) || 0;
       const lineaSubtotal = cantidad * costoUnitario;
-      const lineaIva = lineaSubtotal * (articulo.ivaPercent || 0);
+      const lineaIva = lineaSubtotal * (linea.articulo.ivaPercent || 0);
 
       subtotalSinIva += lineaSubtotal;
       montoIva += lineaIva;
@@ -164,7 +165,7 @@ export function RecepcionMultiForm() {
       montoIva,
       totalConIva: subtotalSinIva + montoIva,
     };
-  }, [lineas, articulos]);
+  }, [lineas]);
 
   const totales = calcularTotales();
 
@@ -476,10 +477,6 @@ export function RecepcionMultiForm() {
 
         <div className="space-y-4">
           {lineas.map((linea, index) => {
-            const articuloSeleccionado = articulos.find(
-              (a) => a.id === linea.articuloId
-            );
-
             return (
               <div
                 key={linea.id}
@@ -487,7 +484,7 @@ export function RecepcionMultiForm() {
               >
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-medium text-gray-700">
-                    Línea #{index + 1}
+                    Linea #{index + 1}
                   </span>
                   {lineas.length > 1 && (
                     <Button
@@ -505,25 +502,14 @@ export function RecepcionMultiForm() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                   {/* Artículo */}
                   <div className="lg:col-span-2">
-                    <Label htmlFor={`articulo_${linea.id}`} required>
-                      Artículo
-                    </Label>
-                    <Select
-                      id={`articulo_${linea.id}`}
+                    <ArticuloSelector
                       value={linea.articuloId}
-                      onChange={(e) =>
-                        actualizarLinea(linea.id, 'articuloId', e.target.value)
-                      }
+                      onChange={(articulo) => handleArticuloLineaChange(linea.id, articulo)}
                       disabled={loading}
+                      required
                       error={fieldErrors[`linea_${linea.id}_articuloId`]}
-                    >
-                      <option value="">Seleccione un artículo</option>
-                      {articulos.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.sku} - {a.nombre}
-                        </option>
-                      ))}
-                    </Select>
+                      label="Articulo"
+                    />
                   </div>
 
                   {/* Cantidad */}
@@ -544,9 +530,9 @@ export function RecepcionMultiForm() {
                       disabled={loading}
                       error={fieldErrors[`linea_${linea.id}_cantidad`]}
                     />
-                    {articuloSeleccionado && (
+                    {linea.articulo && (
                       <p className="text-xs text-gray-500 mt-1">
-                        {articuloSeleccionado.unidadMedida}
+                        {linea.articulo.unidadMedida}
                       </p>
                     )}
                   </div>

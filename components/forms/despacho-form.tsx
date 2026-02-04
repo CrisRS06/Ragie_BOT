@@ -12,14 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BodegaSelector } from '@/components/ui/bodega-selector';
-
-interface Articulo {
-  id: string;
-  sku: string;
-  nombre: string;
-  unidadMedida: string;
-  stockTotal: number;
-}
+import { ArticuloSelector, Articulo } from '@/components/ui/articulo-selector';
 
 interface LotePEPS {
   id: string;
@@ -60,9 +53,8 @@ interface UnidadReceptora {
 
 export function DespachoForm() {
   // Estado del formulario
-  const [articulos, setArticulos] = useState<Articulo[]>([]);
+  const [articuloSeleccionado, setArticuloSeleccionado] = useState<Articulo | null>(null);
   const [loading, setLoading] = useState(false);
-  const [loadingArticulos, setLoadingArticulos] = useState(true);
   const [loadingLotes, setLoadingLotes] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -95,9 +87,8 @@ export function DespachoForm() {
   // Errores de validación por campo
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  // Cargar artículos y unidades receptoras al montar
+  // Cargar unidades receptoras al montar
   useEffect(() => {
-    fetchArticulos();
     fetchUnidadesReceptoras();
   }, []);
 
@@ -123,26 +114,6 @@ export function DespachoForm() {
       setSugerenciaConsumo(null);
     }
   }, [formData.articuloId, formData.cantidad]);
-
-  const fetchArticulos = async () => {
-    try {
-      setLoadingArticulos(true);
-      const response = await fetch('/api/articulos');
-      const data = await response.json();
-
-      if (data.success) {
-        // Filtrar solo artículos con stock
-        setArticulos(data.data.filter((a: Articulo) => a.stockTotal > 0));
-      } else {
-        setError('Error al cargar artículos');
-      }
-    } catch (err) {
-      setError('Error de conexión al cargar artículos');
-      console.error(err);
-    } finally {
-      setLoadingArticulos(false);
-    }
-  };
 
   // FASE 2: Fetch Unidades Receptoras (Albergues)
   const fetchUnidadesReceptoras = async () => {
@@ -292,10 +263,8 @@ export function DespachoForm() {
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
-      // Recargar artículos para actualizar stock
-      setTimeout(() => {
-        fetchArticulos();
-      }, 1000);
+      // Limpiar artículo seleccionado
+      setArticuloSeleccionado(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al crear despacho');
     } finally {
@@ -303,7 +272,26 @@ export function DespachoForm() {
     }
   };
 
-  const articuloSeleccionado = articulos.find((a) => a.id === formData.articuloId);
+  // Manejador de cambio de artículo
+  const handleArticuloChange = (articulo: Articulo | null) => {
+    setArticuloSeleccionado(articulo);
+    setFormData((prev) => ({
+      ...prev,
+      articuloId: articulo?.id || '',
+    }));
+    // Limpiar error del campo
+    if (fieldErrors.articuloId) {
+      setFieldErrors((prev) => ({ ...prev, articuloId: '' }));
+    }
+    // Cargar lotes si hay artículo y bodega
+    if (articulo && formData.bodegaId) {
+      fetchLotesPEPS(articulo.id, formData.bodegaId);
+    } else {
+      setLotesPEPS([]);
+      setStockTotal(0);
+      setSugerenciaConsumo(null);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-CR', {
@@ -387,46 +375,30 @@ export function DespachoForm() {
       {/* Bodega */}
       <BodegaSelector
         value={formData.bodegaId}
-        onChange={(value) => setFormData({ ...formData, bodegaId: value, articuloId: '' })}
+        onChange={(value) => {
+          setFormData({ ...formData, bodegaId: value, articuloId: '' });
+          setArticuloSeleccionado(null);
+          setLotesPEPS([]);
+          setStockTotal(0);
+          setSugerenciaConsumo(null);
+        }}
         disabled={loading}
         required
         error={fieldErrors.bodegaId}
       />
 
       {/* Artículo */}
-      <div>
-        <Label htmlFor="articuloId" required>
-          Artículo a Despachar
-        </Label>
-        <Select
-          id="articuloId"
-          name="articuloId"
-          value={formData.articuloId}
-          onChange={handleChange}
-          disabled={loadingArticulos || loading || !formData.bodegaId}
-          error={fieldErrors.articuloId}
-        >
-          <option value="">
-            {loadingArticulos ? 'Cargando...' : !formData.bodegaId ? 'Primero seleccione una bodega' : 'Seleccione un artículo'}
-          </option>
-          {articulos.map((articulo) => (
-            <option key={articulo.id} value={articulo.id}>
-              {articulo.sku} - {articulo.nombre} (Stock: {articulo.stockTotal} {articulo.unidadMedida})
-            </option>
-          ))}
-        </Select>
-      </div>
-
-      {/* Info del artículo seleccionado */}
-      {articuloSeleccionado && (
-        <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-          <p className="text-sm font-medium text-blue-900">{articuloSeleccionado.nombre}</p>
-          <div className="mt-2 flex gap-4 text-xs text-blue-700">
-            <span>Unidad: {articuloSeleccionado.unidadMedida}</span>
-            <span className="font-bold">Stock disponible: {stockTotal}</span>
-          </div>
-        </div>
-      )}
+      <ArticuloSelector
+        value={formData.articuloId}
+        onChange={handleArticuloChange}
+        bodegaId={formData.bodegaId}
+        soloConStock={true}
+        disabled={loading || !formData.bodegaId}
+        required
+        error={fieldErrors.articuloId}
+        placeholder={!formData.bodegaId ? 'Primero seleccione una bodega' : 'Buscar articulo con stock...'}
+        label="Articulo a Despachar"
+      />
 
       {/* Lotes PEPS disponibles */}
       {lotesPEPS.length > 0 && (

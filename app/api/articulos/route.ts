@@ -36,7 +36,7 @@ const createArticuloSchema = z.object({
   costoReferencia: z.number().min(0).optional().nullable(),
 })
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -48,12 +48,35 @@ export async function GET() {
       )
     }
 
-    // Obtener articulos con proveedor
-    const { data: articulos, error } = await supabase
+    // Obtener parámetros de búsqueda
+    const { searchParams } = new URL(request.url)
+    const q = searchParams.get('q')?.trim() || ''
+    const limite = Math.min(parseInt(searchParams.get('limite') || '0', 10) || 0, 100)
+    const soloConStock = searchParams.get('soloConStock') === 'true'
+    const bodegaId = searchParams.get('bodegaId')?.trim() || null
+
+    // Construir query base
+    let query = supabase
       .from('articulos')
       .select('*, proveedores(id, codigo, nombre)')
       .eq('activo', true)
-      .order('nombre')
+
+    // Aplicar búsqueda si hay término (mínimo 2 caracteres)
+    if (q.length >= 2) {
+      query = query.or(
+        `sku.ilike.%${q}%,nombre.ilike.%${q}%,codigo_sigaf.ilike.%${q}%,marca.ilike.%${q}%,descripcion.ilike.%${q}%`
+      )
+    }
+
+    // Ordenar por nombre
+    query = query.order('nombre')
+
+    // Aplicar límite si se especifica
+    if (limite > 0) {
+      query = query.limit(limite)
+    }
+
+    const { data: articulos, error } = await query
 
     if (error) {
       console.error('Error al obtener articulos:', error)
@@ -63,12 +86,18 @@ export async function GET() {
       )
     }
 
-    // Obtener TODOS los lotes activos en UNA sola query (evita N+1)
-    const { data: todosLotes } = await supabase
+    // Obtener lotes activos, filtrando por bodega si se especifica
+    let lotesQuery = supabase
       .from('lotes')
-      .select('articulo_id, cantidad_disponible')
+      .select('articulo_id, cantidad_disponible, bodega_id')
       .eq('activo', true)
       .gt('cantidad_disponible', 0)
+
+    if (bodegaId) {
+      lotesQuery = lotesQuery.eq('bodega_id', bodegaId)
+    }
+
+    const { data: todosLotes } = await lotesQuery
 
     // Calcular stock y conteo de lotes por artículo en memoria
     const stockPorArticulo: Record<string, { total: number; count: number }> = {}
@@ -84,7 +113,7 @@ export async function GET() {
     }
 
     // Mapear artículos con su stock (sin queries adicionales)
-    const articulosConStock = (articulos || []).map((articulo) => {
+    let articulosConStock = (articulos || []).map((articulo) => {
       const stockInfo = stockPorArticulo[articulo.id] || { total: 0, count: 0 }
       const proveedor = articulo.proveedores as { id: string; codigo: string; nombre: string } | null
 
@@ -110,6 +139,11 @@ export async function GET() {
         lotesActivos: stockInfo.count,
       }
     })
+
+    // Filtrar solo con stock si se requiere
+    if (soloConStock) {
+      articulosConStock = articulosConStock.filter(a => a.stockTotal > 0)
+    }
 
     return NextResponse.json({
       success: true,

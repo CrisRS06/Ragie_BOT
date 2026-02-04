@@ -5,27 +5,17 @@
  * Maneja la creación de nuevas recepciones con validación
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
 import { BodegaSelector } from '@/components/ui/bodega-selector';
-
-interface Articulo {
-  id: string;
-  sku: string;
-  nombre: string;
-  descripcionSIGAF: string;
-  unidadMedida: string;
-  stockTotal: number;
-}
+import { ArticuloSelector, Articulo } from '@/components/ui/articulo-selector';
 
 export function RecepcionForm() {
   // Estado del formulario
-  const [articulos, setArticulos] = useState<Articulo[]>([]);
+  const [articuloSeleccionado, setArticuloSeleccionado] = useState<Articulo | null>(null);
   const [loading, setLoading] = useState(false);
-  const [loadingArticulos, setLoadingArticulos] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -44,30 +34,6 @@ export function RecepcionForm() {
 
   // Errores de validación por campo
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  // Cargar artículos al montar
-  useEffect(() => {
-    fetchArticulos();
-  }, []);
-
-  const fetchArticulos = async () => {
-    try {
-      setLoadingArticulos(true);
-      const response = await fetch('/api/articulos');
-      const data = await response.json();
-
-      if (data.success) {
-        setArticulos(data.data);
-      } else {
-        setError('Error al cargar artículos');
-      }
-    } catch (err) {
-      setError('Error de conexión al cargar artículos');
-      console.error(err);
-    } finally {
-      setLoadingArticulos(false);
-    }
-  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -166,10 +132,8 @@ export function RecepcionForm() {
       // Scroll to top para ver mensaje de éxito
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
-      // Recargar artículos para actualizar stock
-      setTimeout(() => {
-        fetchArticulos();
-      }, 1000);
+      // Limpiar artículo seleccionado
+      setArticuloSeleccionado(null);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Error al crear recepción'
@@ -179,10 +143,18 @@ export function RecepcionForm() {
     }
   };
 
-  // Artículo seleccionado
-  const articuloSeleccionado = articulos.find(
-    (a) => a.id === formData.articuloId
-  );
+  // Manejador de cambio de artículo
+  const handleArticuloChange = (articulo: Articulo | null) => {
+    setArticuloSeleccionado(articulo);
+    setFormData((prev) => ({
+      ...prev,
+      articuloId: articulo?.id || '',
+    }));
+    // Limpiar error del campo
+    if (fieldErrors.articuloId) {
+      setFieldErrors((prev) => ({ ...prev, articuloId: '' }));
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -250,44 +222,14 @@ export function RecepcionForm() {
       />
 
       {/* Artículo */}
-      <div>
-        <Label htmlFor="articuloId" required>
-          Artículo
-        </Label>
-        <Select
-          id="articuloId"
-          name="articuloId"
-          value={formData.articuloId}
-          onChange={handleChange}
-          disabled={loadingArticulos || loading}
-          error={fieldErrors.articuloId}
-        >
-          <option value="">
-            {loadingArticulos ? 'Cargando...' : 'Seleccione un artículo'}
-          </option>
-          {articulos.map((articulo) => (
-            <option key={articulo.id} value={articulo.id}>
-              {articulo.sku} - {articulo.nombre} (Stock: {articulo.stockTotal}{' '}
-              {articulo.unidadMedida})
-            </option>
-          ))}
-        </Select>
-      </div>
-
-      {/* Info del artículo seleccionado */}
-      {articuloSeleccionado && (
-        <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-          <p className="text-sm font-medium text-blue-900">
-            Descripción SIGAF:
-          </p>
-          <p className="text-sm text-blue-800">
-            {articuloSeleccionado.descripcionSIGAF}
-          </p>
-          <p className="text-xs text-blue-700 mt-1">
-            Unidad de medida: {articuloSeleccionado.unidadMedida}
-          </p>
-        </div>
-      )}
+      <ArticuloSelector
+        value={formData.articuloId}
+        onChange={handleArticuloChange}
+        disabled={loading}
+        required
+        error={fieldErrors.articuloId}
+        placeholder="Buscar por SKU, nombre, codigo SIGAF, marca..."
+      />
 
       {/* Cantidad */}
       <div>
