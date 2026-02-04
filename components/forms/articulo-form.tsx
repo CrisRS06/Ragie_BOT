@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
+import { CodigoSigafSelector } from '@/components/ui/codigo-sigaf-selector';
 
 interface Articulo {
   id: string;
@@ -497,63 +498,45 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
         </div>
       </div>
 
-      {/* Sección: Códigos Gubernamentales */}
+      {/* Sección: Código SIGAF */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Códigos Gubernamentales</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Código SIGAF</h3>
         <p className="text-sm text-gray-500 mb-4">
-          Códigos de identificación para sistemas gubernamentales de Costa Rica
+          Código del Sistema Integrado de Gestión de la Administración Financiera
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Código PANI */}
-          <div>
-            <Label htmlFor="codigoPANI">
-              Código PANI
-            </Label>
-            <Input
-              id="codigoPANI"
-              name="codigoPANI"
-              type="text"
-              placeholder="Ej: PANI-001"
-              value={formData.codigoPANI}
-              onChange={handleChange}
-              disabled={loading}
-            />
-            <p className="mt-1 text-xs text-gray-500">Patronato Nacional de la Infancia</p>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Selector SIGAF con búsqueda */}
+          <CodigoSigafSelector
+            value={formData.codigoSIGAF}
+            onChange={(codigo, descripcion) => {
+              setFormData(prev => ({
+                ...prev,
+                codigoSIGAF: codigo,
+                descripcionSIGAF: descripcion || prev.descripcionSIGAF
+              }));
+            }}
+            disabled={loading}
+          />
 
-          {/* Código SICOP */}
+          {/* Descripción SIGAF (se puede editar manualmente) */}
           <div>
-            <Label htmlFor="codigoSICOP">
-              Código SICOP
+            <Label htmlFor="descripcionSIGAF">
+              Descripción SIGAF
             </Label>
-            <Input
-              id="codigoSICOP"
-              name="codigoSICOP"
-              type="text"
-              placeholder="Ej: SICOP-12345"
-              value={formData.codigoSICOP}
+            <textarea
+              id="descripcionSIGAF"
+              name="descripcionSIGAF"
+              rows={3}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+              placeholder="Descripción del artículo según catálogo SIGAF"
+              value={formData.descripcionSIGAF}
               onChange={handleChange}
               disabled={loading}
             />
-            <p className="mt-1 text-xs text-gray-500">Sistema Integrado de Compras Públicas</p>
-          </div>
-
-          {/* Código SICOPL */}
-          <div>
-            <Label htmlFor="codigoSICOPL">
-              Código SICOPL
-            </Label>
-            <Input
-              id="codigoSICOPL"
-              name="codigoSICOPL"
-              type="text"
-              placeholder="Ej: SICOPL-001"
-              value={formData.codigoSICOPL}
-              onChange={handleChange}
-              disabled={loading}
-            />
-            <p className="mt-1 text-xs text-gray-500">Código SICOP alternativo (si aplica)</p>
+            <p className="mt-1 text-xs text-gray-500">
+              Se puede autocompletar al seleccionar un código SIGAF
+            </p>
           </div>
         </div>
       </div>

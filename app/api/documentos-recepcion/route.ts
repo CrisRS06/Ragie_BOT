@@ -33,12 +33,15 @@ export async function GET(request: NextRequest) {
     const limite = parseInt(searchParams.get('limite') || '20')
     const offset = parseInt(searchParams.get('offset') || '0')
 
+    const bodegaId = searchParams.get('bodegaId')
+
     let query = supabase
       .from('documentos_recepcion')
       .select(`
         *,
-        proveedor:proveedores(id, codigo, nombre),
-        usuario:perfiles(id, nombre)
+        proveedor:proveedores!proveedor_id(id, codigo, nombre),
+        usuario:perfiles!usuario_id(id, nombre),
+        bodega:bodegas!bodega_id(id, codigo, nombre)
       `, { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limite - 1)
@@ -48,6 +51,9 @@ export async function GET(request: NextRequest) {
     }
     if (proveedorId) {
       query = query.eq('proveedor_id', proveedorId)
+    }
+    if (bodegaId) {
+      query = query.eq('bodega_id', bodegaId)
     }
 
     const { data: documentos, error, count } = await query
@@ -92,7 +98,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { proveedorId, documentoExterno, fechaDocumento, observaciones, detalles } = body
+    const { proveedorId, documentoExterno, fechaDocumento, observaciones, detalles, bodegaId } = body
 
     // Validar que hay detalles
     if (!detalles || !Array.isArray(detalles) || detalles.length === 0) {
@@ -127,6 +133,7 @@ export async function POST(request: NextRequest) {
         observaciones: observaciones || null,
         estado: 'BORRADOR',
         usuario_id: user.id,
+        bodega_id: bodegaId || null,
       })
       .select()
       .single()
@@ -172,6 +179,7 @@ export async function POST(request: NextRequest) {
       datos_nuevos: {
         numero,
         proveedorId,
+        bodegaId,
         cantidadArticulos: detalles.length,
       },
     })

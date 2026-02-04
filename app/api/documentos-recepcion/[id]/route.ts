@@ -34,11 +34,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { data: documento, error } = await supabase
       .from('documentos_recepcion')
       .select(`
-        *,
+        id, numero, proveedor_id, documento_externo, fecha_documento, observaciones, estado, usuario_id, created_at, updated_at,
         proveedor:proveedores(id, codigo, nombre),
         usuario:perfiles(id, nombre),
         detalles:detalles_recepcion(
-          *,
+          id, documento_id, articulo_id, cantidad, costo_unitario, fecha_vencimiento, numero_lote_proveedor, ubicacion, lote_id, created_at,
           articulo:articulos(id, sku, nombre, unidad_medida),
           lote:lotes(id, numero_lote, cantidad_disponible)
         )

@@ -90,7 +90,7 @@ export async function GET(
     ].join('\n')
 
     // Nombre del archivo
-    const fecha = new Date(corte.created_at).toISOString().split('T')[0]
+    const fecha = new Date(corte.created_at || new Date()).toISOString().split('T')[0]
     const filename = `corte-${(corte.tipo || 'inventario').toLowerCase()}-${fecha}.csv`
 
     return new NextResponse(csv, {

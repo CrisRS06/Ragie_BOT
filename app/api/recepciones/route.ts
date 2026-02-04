@@ -21,6 +21,7 @@ const createRecepcionSchema = z.object({
   numeroLote: z.string().optional(),
   proveedor: z.string().optional(),
   documentoReferencia: z.string().optional(),
+  bodegaId: z.string().uuid('ID de bodega invalido').optional(),
 })
 
 /**
@@ -43,13 +44,16 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0')
     const articuloId = searchParams.get('articuloId')
 
+    const bodegaId = searchParams.get('bodegaId')
+
     // Query base
     let query = supabase
       .from('movimientos')
       .select(`
         *,
-        articulos (sku, nombre, unidad_medida),
-        lotes (id, numero_lote, cantidad_inicial, cantidad_disponible, fecha_vencimiento, proveedor)
+        articulo:articulos!articulo_id(sku, nombre, unidad_medida),
+        lote:lotes!lote_id(id, numero_lote, cantidad_inicial, cantidad_disponible, fecha_vencimiento, proveedor, bodega_id),
+        bodega:bodegas!bodega_id(id, codigo, nombre)
       `, { count: 'exact' })
       .eq('tipo', 'ENTRADA')
       .order('created_at', { ascending: false })
@@ -57,6 +61,10 @@ export async function GET(request: NextRequest) {
 
     if (articuloId) {
       query = query.eq('articulo_id', articuloId)
+    }
+
+    if (bodegaId) {
+      query = query.eq('bodega_id', bodegaId)
     }
 
     const { data: movimientos, error, count } = await query
@@ -136,9 +144,10 @@ export async function POST(request: NextRequest) {
       p_fecha_vencimiento: data.fechaVencimiento,
       p_costo_unitario: data.costoUnitario || 0,
       p_usuario_id: user.id,
-      p_proveedor: data.proveedor || null,
-      p_numero_lote: data.numeroLote || null,
-      p_documento: data.documentoReferencia || null,
+      p_proveedor: data.proveedor || undefined,
+      p_numero_lote: data.numeroLote || undefined,
+      p_documento: data.documentoReferencia || undefined,
+      p_bodega_id: data.bodegaId || undefined,
     })
 
     if (recError) {

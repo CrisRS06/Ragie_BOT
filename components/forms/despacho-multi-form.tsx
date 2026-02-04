@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
+import { BodegaSelector } from '@/components/ui/bodega-selector';
 import {
   Plus,
   Trash2,
@@ -67,6 +68,7 @@ export function DespachoMultiForm() {
   const [receptor, setReceptor] = useState('');
   const [cedulaReceptor, setCedulaReceptor] = useState('');
   const [unidadReceptoraId, setUnidadReceptoraId] = useState('');
+  const [bodegaId, setBodegaId] = useState('');
   const [observaciones, setObservaciones] = useState('');
 
   // Estado del formulario - Líneas
@@ -162,6 +164,10 @@ export function DespachoMultiForm() {
       errors.unidadReceptoraId = 'Seleccione el albergue/unidad receptora de destino';
     }
 
+    if (!bodegaId) {
+      errors.bodegaId = 'Seleccione una bodega';
+    }
+
     let lineasValidas = 0;
     for (const linea of lineas) {
       if (!linea.articuloId) {
@@ -204,10 +210,9 @@ export function DespachoMultiForm() {
 
     try {
       const lineasValidas = lineas.filter((l) => l.articuloId && parseFloat(l.cantidad) > 0);
-      const resultados: ResultadoLinea[] = [];
 
-      // Procesar cada línea
-      for (const linea of lineasValidas) {
+      // Procesar todas las líneas en paralelo usando Promise.all
+      const promesas = lineasValidas.map(async (linea) => {
         const articulo = articulos.find((a) => a.id === linea.articuloId);
 
         try {
@@ -221,38 +226,40 @@ export function DespachoMultiForm() {
               cedulaReceptor: cedulaReceptor || undefined,
               unidadReceptoraId,
               observaciones: observaciones || undefined,
+              bodegaId: bodegaId || undefined,
             }),
           });
 
           const data = await response.json();
 
           if (!response.ok || !data.success) {
-            resultados.push({
+            return {
               articuloNombre: articulo?.nombre || linea.articuloId,
               cantidad: parseFloat(linea.cantidad),
               lotesConsumidos: 0,
               exitoso: false,
               error: data.error || 'Error al procesar',
-            });
+            } as ResultadoLinea;
           } else {
-            resultados.push({
+            return {
               articuloNombre: articulo?.nombre || linea.articuloId,
               cantidad: parseFloat(linea.cantidad),
               lotesConsumidos: data.lotesConsumidos?.length || 0,
               exitoso: true,
-            });
+            } as ResultadoLinea;
           }
         } catch (err) {
-          resultados.push({
+          return {
             articuloNombre: articulo?.nombre || linea.articuloId,
             cantidad: parseFloat(linea.cantidad),
             lotesConsumidos: 0,
             exitoso: false,
             error: 'Error de conexión',
-          });
+          } as ResultadoLinea;
         }
-      }
+      });
 
+      const resultados = await Promise.all(promesas);
       const exitosos = resultados.filter((r) => r.exitoso).length;
 
       if (exitosos === 0) {
@@ -267,6 +274,7 @@ export function DespachoMultiForm() {
         setReceptor('');
         setCedulaReceptor('');
         setUnidadReceptoraId('');
+        setBodegaId('');
         setObservaciones('');
         setLineas([emptyLinea()]);
 
@@ -355,7 +363,16 @@ export function DespachoMultiForm() {
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
           Datos del Receptor
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Bodega */}
+          <BodegaSelector
+            value={bodegaId}
+            onChange={(value) => setBodegaId(value)}
+            disabled={loading}
+            required
+            error={fieldErrors.bodegaId}
+          />
+
           {/* Nombre del Receptor */}
           <div>
             <Label htmlFor="receptor" required>Nombre del Receptor</Label>

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
+import { BodegaSelector } from '@/components/ui/bodega-selector';
 
 interface Articulo {
   id: string;
@@ -38,6 +39,7 @@ export function RecepcionForm() {
     costoUnitario: '',
     ubicacion: '',
     documentoReferencia: '',
+    bodegaId: '',
   });
 
   // Errores de validación por campo
@@ -85,6 +87,10 @@ export function RecepcionForm() {
       errors.articuloId = 'Seleccione un artículo';
     }
 
+    if (!formData.bodegaId) {
+      errors.bodegaId = 'Seleccione una bodega';
+    }
+
     if (!formData.cantidad || parseFloat(formData.cantidad) <= 0) {
       errors.cantidad = 'La cantidad debe ser mayor a 0';
     }
@@ -126,6 +132,7 @@ export function RecepcionForm() {
           : undefined,
         ubicacion: formData.ubicacion || undefined,
         documentoReferencia: formData.documentoReferencia || undefined,
+        bodegaId: formData.bodegaId || undefined,
       };
 
       const response = await fetch('/api/recepciones', {
@@ -153,6 +160,7 @@ export function RecepcionForm() {
         costoUnitario: '',
         ubicacion: '',
         documentoReferencia: '',
+        bodegaId: '',
       });
 
       // Scroll to top para ver mensaje de éxito
@@ -231,6 +239,15 @@ export function RecepcionForm() {
           </div>
         </div>
       )}
+
+      {/* Bodega */}
+      <BodegaSelector
+        value={formData.bodegaId}
+        onChange={(value) => setFormData({ ...formData, bodegaId: value })}
+        disabled={loading}
+        required
+        error={fieldErrors.bodegaId}
+      />
 
       {/* Artículo */}
       <div>

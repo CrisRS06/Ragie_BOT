@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { BodegaSelector } from '@/components/ui/bodega-selector';
 
 interface Articulo {
   id: string;
@@ -88,6 +89,7 @@ export function DespachoForm() {
     cedulaReceptor: '',
     unidadReceptoraId: '',
     observaciones: '',
+    bodegaId: '',
   });
 
   // Errores de validación por campo
@@ -99,16 +101,16 @@ export function DespachoForm() {
     fetchUnidadesReceptoras();
   }, []);
 
-  // Cargar lotes cuando cambia el artículo
+  // Cargar lotes cuando cambia el artículo o la bodega
   useEffect(() => {
     if (formData.articuloId) {
-      fetchLotesPEPS(formData.articuloId);
+      fetchLotesPEPS(formData.articuloId, formData.bodegaId);
     } else {
       setLotesPEPS([]);
       setStockTotal(0);
       setSugerenciaConsumo(null);
     }
-  }, [formData.articuloId]);
+  }, [formData.articuloId, formData.bodegaId]);
 
   // Calcular sugerencia de consumo cuando cambia la cantidad
   useEffect(() => {
@@ -161,10 +163,15 @@ export function DespachoForm() {
     }
   };
 
-  const fetchLotesPEPS = async (articuloId: string) => {
+  const fetchLotesPEPS = async (articuloId: string, bodegaId?: string) => {
     try {
       setLoadingLotes(true);
-      const response = await fetch(`/api/articulos/${articuloId}/lotes-peps`);
+      const params = new URLSearchParams();
+      if (bodegaId) {
+        params.append('bodegaId', bodegaId);
+      }
+      const url = `/api/articulos/${articuloId}/lotes-peps${params.toString() ? `?${params}` : ''}`;
+      const response = await fetch(url);
       const data = await response.json();
 
       setLotesPEPS(data.lotes || []);
@@ -199,6 +206,10 @@ export function DespachoForm() {
 
     if (!formData.articuloId) {
       errors.articuloId = 'Seleccione un artículo';
+    }
+
+    if (!formData.bodegaId) {
+      errors.bodegaId = 'Seleccione una bodega';
     }
 
     if (!formData.cantidad || parseFloat(formData.cantidad) <= 0) {
@@ -240,6 +251,7 @@ export function DespachoForm() {
         cedulaReceptor: formData.cedulaReceptor || undefined,
         unidadReceptoraId: formData.unidadReceptoraId || undefined,
         observaciones: formData.observaciones || undefined,
+        bodegaId: formData.bodegaId || undefined,
       };
 
       const response = await fetch('/api/despachos', {
@@ -272,6 +284,7 @@ export function DespachoForm() {
         cedulaReceptor: '',
         unidadReceptoraId: '',
         observaciones: '',
+        bodegaId: '',
       });
       setLotesPEPS([]);
       setStockTotal(0);
@@ -371,6 +384,15 @@ export function DespachoForm() {
         </div>
       )}
 
+      {/* Bodega */}
+      <BodegaSelector
+        value={formData.bodegaId}
+        onChange={(value) => setFormData({ ...formData, bodegaId: value, articuloId: '' })}
+        disabled={loading}
+        required
+        error={fieldErrors.bodegaId}
+      />
+
       {/* Artículo */}
       <div>
         <Label htmlFor="articuloId" required>
@@ -381,11 +403,11 @@ export function DespachoForm() {
           name="articuloId"
           value={formData.articuloId}
           onChange={handleChange}
-          disabled={loadingArticulos || loading}
+          disabled={loadingArticulos || loading || !formData.bodegaId}
           error={fieldErrors.articuloId}
         >
           <option value="">
-            {loadingArticulos ? 'Cargando...' : 'Seleccione un artículo'}
+            {loadingArticulos ? 'Cargando...' : !formData.bodegaId ? 'Primero seleccione una bodega' : 'Seleccione un artículo'}
           </option>
           {articulos.map((articulo) => (
             <option key={articulo.id} value={articulo.id}>

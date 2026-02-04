@@ -1,9 +1,13 @@
 import { defineConfig, devices } from '@playwright/test';
+import path from 'path';
 
 /**
  * Configuración de Playwright para tests E2E
  * @see https://playwright.dev/docs/test-configuration
  */
+
+const authFile = path.join(__dirname, '.playwright/.auth/user.json');
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false, // MVP: Sequential para facilitar debug
@@ -28,9 +32,20 @@ export default defineConfig({
   },
 
   projects: [
+    // Setup project - se ejecuta primero para autenticar
+    {
+      name: 'setup',
+      testMatch: /.*\.setup\.ts/,
+    },
+    // Tests con autenticación
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        // Usar el estado de autenticación guardado
+        storageState: authFile,
+      },
+      dependencies: ['setup'], // Ejecutar setup primero
     },
   ],
 

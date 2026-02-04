@@ -59,7 +59,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .from('movimientos')
       .select(`
         *,
-        lote:lotes(*)
+        lote:lotes(id, numero_lote, cantidad_inicial, cantidad_disponible, fecha_vencimiento, costo_unitario, activo, agotado)
       `)
       .eq('id', id)
       .eq('tipo', 'SALIDA')

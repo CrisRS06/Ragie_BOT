@@ -292,14 +292,14 @@ export default function AuditoriaPage() {
                       </td>
                       <td className="px-2 sm:px-3 py-2">
                         <span className="text-gray-900 dark:text-white">{registro.entidad}</span>
-                        <span className="text-gray-400 dark:text-gray-500 text-xs block font-mono truncate max-w-[80px] sm:max-w-none">{registro.entidadId.substring(0, 8)}...</span>
+                        <span className="text-gray-400 dark:text-gray-500 text-xs block font-mono truncate max-w-[80px] sm:max-w-none">{registro.entidadId?.substring(0, 8) || 'N/A'}...</span>
                       </td>
                       <td className="px-2 sm:px-3 py-2 text-gray-600 dark:text-gray-400">
                         {registro.usuario?.nombre || 'Sistema'}
                       </td>
                       <td className="px-2 sm:px-3 py-2">
                         <code className="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded font-mono text-gray-800 dark:text-gray-200 truncate max-w-[80px] sm:max-w-[120px] inline-block">
-                          {registro.hashActual.substring(0, 12)}...
+                          {registro.hashActual?.substring(0, 12) || 'N/A'}...
                         </code>
                       </td>
                     </tr>

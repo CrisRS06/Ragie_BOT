@@ -16,6 +16,7 @@ const createDespachoSchema = z.object({
   cedulaReceptor: z.string().optional(),
   documentoReferencia: z.string().optional(),
   observaciones: z.string().optional(),
+  bodegaId: z.string().uuid('ID de bodega invalido').optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -67,8 +68,9 @@ export async function POST(request: NextRequest) {
       p_cantidad: datos.cantidad,
       p_usuario_id: user.id,
       p_receptor: datos.receptor,
-      p_documento: datos.documentoReferencia || null,
-      p_observaciones: datos.observaciones || null,
+      p_documento: datos.documentoReferencia || undefined,
+      p_observaciones: datos.observaciones || undefined,
+      p_bodega_id: datos.bodegaId || undefined,
     })
 
     if (pepsError) {
@@ -134,14 +136,16 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0')
     const fechaDesde = searchParams.get('fechaDesde')
     const fechaHasta = searchParams.get('fechaHasta')
+    const bodegaId = searchParams.get('bodegaId')
 
     // Obtener movimientos de salida (despachos)
     let query = supabase
       .from('movimientos')
       .select(`
         *,
-        articulo:articulos(sku, nombre, unidad_medida),
-        lote:lotes(numero_lote, fecha_vencimiento)
+        articulo:articulos!articulo_id(sku, nombre, unidad_medida),
+        lote:lotes!lote_id(numero_lote, fecha_vencimiento, bodega_id),
+        bodega:bodegas!bodega_id(id, codigo, nombre)
       `, { count: 'exact' })
       .eq('tipo', 'SALIDA')
       .order('created_at', { ascending: false })
@@ -152,6 +156,9 @@ export async function GET(request: NextRequest) {
     }
     if (fechaHasta) {
       query = query.lte('created_at', `${fechaHasta}T23:59:59`)
+    }
+    if (bodegaId) {
+      query = query.eq('bodega_id', bodegaId)
     }
 
     const { data: movimientos, error, count } = await query.range(offset, offset + limite - 1)
@@ -174,11 +181,22 @@ export async function GET(request: NextRequest) {
       : { data: [] }
     const unidadesMap = new Map((unidades || []).map(u => [u.id, u]))
 
+    // Fetch bodegas separately
+    const bodegaIds = [...new Set((movimientos || []).map(m => m.bodega_id).filter((id): id is string => id !== null))]
+    const { data: bodegas } = bodegaIds.length > 0
+      ? await supabase
+          .from('bodegas')
+          .select('id, codigo, nombre')
+          .in('id', bodegaIds)
+      : { data: [] }
+    const bodegasMap = new Map((bodegas || []).map(b => [b.id, b]))
+
     // Transform response to camelCase for frontend
     const despachosTransformed = (movimientos || []).map((mov) => {
       const articulo = mov.articulo as { sku: string; nombre: string; unidad_medida: string } | null
-      const lote = mov.lote as { numero_lote: string | null; fecha_vencimiento: string } | null
+      const lote = mov.lote as { numero_lote: string | null; fecha_vencimiento: string; bodega_id: string | null } | null
       const unidadReceptora = mov.unidad_receptora_id ? unidadesMap.get(mov.unidad_receptora_id) : null
+      const bodega = mov.bodega_id ? bodegasMap.get(mov.bodega_id) : null
 
       return {
         id: mov.id,
@@ -200,6 +218,11 @@ export async function GET(request: NextRequest) {
         unidadReceptora: unidadReceptora ? {
           codigo: unidadReceptora.codigo,
           nombre: unidadReceptora.nombre,
+        } : null,
+        bodega: bodega ? {
+          id: bodega.id,
+          codigo: bodega.codigo,
+          nombre: bodega.nombre,
         } : null,
       }
     })

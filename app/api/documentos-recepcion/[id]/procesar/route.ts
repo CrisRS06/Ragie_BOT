@@ -114,6 +114,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           proveedor: documento.proveedor_id,
           costo_unitario: detalle.costo_unitario,
           ubicacion: detalle.ubicacion,
+          bodega_id: documento.bodega_id,
           activo: true,
           agotado: false,
         })
@@ -142,6 +143,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           usuario_id: user.id,
           documento_referencia: documento.numero,
           observaciones: `Recepcion via documento ${documento.numero}`,
+          bodega_id: documento.bodega_id,
         })
         .select()
         .single()

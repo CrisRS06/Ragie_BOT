@@ -61,16 +61,24 @@ test.describe('Journey 4: Consulta de Inventario', () => {
   test('debería poder navegar al detalle de un artículo', async ({ page }) => {
     await page.waitForTimeout(2000);
 
-    // Buscar links a detalle de artículos
-    const articuloLinks = page.locator('a[href^="/inventario/"]');
-    const count = await articuloLinks.count();
+    // Buscar el link "Ver Lotes" que lleva al detalle del artículo
+    const verLotesLinks = page.getByRole('link', { name: /Ver Lotes/i });
+    const count = await verLotesLinks.count();
 
     if (count > 0) {
-      await articuloLinks.first().click();
+      await verLotesLinks.first().click();
       await page.waitForTimeout(1500);
 
-      // Verificar que estamos en la página de detalle
-      await expect(page.url()).toContain('/inventario/');
+      // Verificar que estamos en la página de detalle (URL contiene UUID)
+      const url = page.url();
+      const tieneUUID = /\/inventario\/[0-9a-f-]{36}/i.test(url);
+      expect(tieneUUID).toBeTruthy();
+    } else {
+      // Si no hay artículos, verificar que la tabla muestra mensaje vacío o existe
+      const tabla = page.locator('table');
+      const mensajeVacio = page.getByText(/no se encontraron|sin stock|vacío/i);
+      const tablaOmensaje = await tabla.isVisible() || await mensajeVacio.isVisible();
+      expect(tablaOmensaje).toBeTruthy();
     }
   });
 

@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
         cantidad_disponible,
         fecha_vencimiento,
         ubicacion,
-        articulos (id, sku, nombre, unidad_medida)
+        articulo:articulos(id, sku, nombre, unidad_medida)
       `)
       .gt('cantidad_disponible', 0)
       .eq('activo', true)

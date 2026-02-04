@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
+import { BodegaSelector } from '@/components/ui/bodega-selector';
 import {
   Plus,
   Trash2,
@@ -63,6 +64,7 @@ export function RecepcionMultiForm() {
 
   // Estado del formulario - Encabezado
   const [proveedorId, setProveedorId] = useState('');
+  const [bodegaId, setBodegaId] = useState('');
   const [documentoExterno, setDocumentoExterno] = useState('');
   const [fechaDocumento, setFechaDocumento] = useState('');
   const [observaciones, setObservaciones] = useState('');
@@ -198,6 +200,10 @@ export function RecepcionMultiForm() {
       errors['global'] = 'Debe agregar al menos una línea válida';
     }
 
+    if (!bodegaId) {
+      errors['bodegaId'] = 'Seleccione una bodega';
+    }
+
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -218,10 +224,11 @@ export function RecepcionMultiForm() {
       // Preparar payload
       const payload = {
         proveedorId: proveedorId || null,
+        bodegaId: bodegaId || null,
         documentoExterno: documentoExterno || null,
         fechaDocumento: fechaDocumento || null,
         observaciones: observaciones || null,
-        lineas: lineas
+        detalles: lineas
           .filter((l) => l.articuloId) // Solo líneas con artículo
           .map((l) => ({
             articuloId: l.articuloId,
@@ -252,6 +259,7 @@ export function RecepcionMultiForm() {
 
       // Limpiar formulario
       setProveedorId('');
+      setBodegaId('');
       setDocumentoExterno('');
       setFechaDocumento('');
       setObservaciones('');
@@ -380,7 +388,16 @@ export function RecepcionMultiForm() {
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
           Datos del Documento
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Bodega */}
+          <BodegaSelector
+            value={bodegaId}
+            onChange={(value) => setBodegaId(value)}
+            disabled={loading}
+            required
+            error={fieldErrors['bodegaId']}
+          />
+
           {/* Proveedor */}
           <div>
             <Label htmlFor="proveedorId">Proveedor</Label>

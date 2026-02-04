@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       const perfil = r.usuario_id ? perfilesMap.get(r.usuario_id) : null
       return [
         r.id,
-        new Date(r.created_at).toISOString(),
+        new Date(r.created_at || new Date()).toISOString(),
         perfil?.nombre || 'Sistema',
         perfil?.rol || 'N/A',
         r.accion,

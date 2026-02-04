@@ -55,7 +55,7 @@ export async function GET(
     // Obtener detalles del corte
     const { data: detalles } = await supabase
       .from('detalles_corte')
-      .select('*')
+      .select('id, corte_id, articulo_id, lote_id, cantidad, fecha_vencimiento, ubicacion, created_at')
       .eq('corte_id', corteId)
 
     // Obtener articulos para los detalles

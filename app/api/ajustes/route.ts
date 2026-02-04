@@ -12,7 +12,9 @@ export const dynamic = 'force-dynamic'
 
 const ajusteSchema = z.object({
   loteId: z.string().uuid('ID de lote invalido'),
-  cantidadAjuste: z.number(),
+  cantidadAjuste: z.number().refine((val) => val !== 0, {
+    message: 'La cantidad de ajuste no puede ser cero',
+  }),
   observaciones: z.string().min(10, 'Observaciones requeridas'),
 })
 
@@ -78,6 +80,7 @@ export async function POST(request: NextRequest) {
         cantidad: Math.abs(cantidadAjuste),
         usuario_id: user.id,
         observaciones: `${cantidadAjuste >= 0 ? 'Ajuste positivo' : 'Ajuste negativo'}: ${observaciones} (Saldo anterior: ${lote.cantidad_disponible}, Saldo nuevo: ${nuevaCantidad})`,
+        bodega_id: lote.bodega_id,
       })
       .select('id')
       .single()

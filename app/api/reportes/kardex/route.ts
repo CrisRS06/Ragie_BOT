@@ -206,7 +206,7 @@ export async function GET(request: NextRequest) {
 
       kardexMovimientos.push({
         id: mov.id,
-        fecha: mov.created_at,
+        fecha: mov.created_at || new Date().toISOString(),
         tipo: mov.tipo,
         numeroLote: lote?.numero_lote || null,
         descripcion,
