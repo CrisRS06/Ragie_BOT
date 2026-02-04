@@ -14,13 +14,51 @@ interface Articulo {
   sku: string;
   nombre: string;
   descripcion?: string | null;
-  descripcionSIGAF: string;
+  descripcionSIGAF?: string | null;
   codigoSIGAF?: string | null;
   unidadMedida: string;
   stockMinimo?: number | null;
   stockMaximo?: number | null;
   requiereVencimiento: boolean;
+  proveedorId?: string | null;
+  // Campos adicionales PANI/Bodega
+  codigoBarras?: string | null;
+  marca?: string | null;
+  ivaPercent?: number;
+  observaciones?: string | null;
+  codigoPANI?: string | null;
+  codigoSICOP?: string | null;
+  codigoSICOPL?: string | null;
+  categoria?: string | null;
+  precio?: number | null;
+  costoReferencia?: number | null;
 }
+
+// Función para transformar snake_case → camelCase desde la API
+const transformArticulo = (data: Record<string, unknown>): Articulo => ({
+  id: data.id as string,
+  sku: data.sku as string,
+  nombre: data.nombre as string,
+  descripcion: data.descripcion as string | null | undefined,
+  descripcionSIGAF: data.descripcion_sigaf as string | null | undefined,
+  codigoSIGAF: data.codigo_sigaf as string | null | undefined,
+  unidadMedida: data.unidad_medida as string,
+  stockMinimo: data.stock_minimo as number | null | undefined,
+  stockMaximo: data.stock_maximo as number | null | undefined,
+  requiereVencimiento: (data.requiere_vencimiento as boolean) ?? true,
+  proveedorId: data.proveedor_id as string | null | undefined,
+  // Campos adicionales PANI/Bodega
+  codigoBarras: data.codigo_barras as string | null | undefined,
+  marca: data.marca as string | null | undefined,
+  ivaPercent: data.iva_percent as number | undefined,
+  observaciones: data.observaciones as string | null | undefined,
+  codigoPANI: data.codigo_pani as string | null | undefined,
+  codigoSICOP: data.codigo_sicop as string | null | undefined,
+  codigoSICOPL: data.codigo_sicopl as string | null | undefined,
+  categoria: data.categoria as string | null | undefined,
+  precio: data.precio as number | null | undefined,
+  costoReferencia: data.costo_referencia as number | null | undefined,
+});
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -43,7 +81,7 @@ export default function EditarArticuloPage({ params }: PageProps) {
       const data = await response.json();
 
       if (data.success) {
-        setArticulo(data.data);
+        setArticulo(transformArticulo(data.data));
       } else {
         setError(data.error || 'Artículo no encontrado');
       }
