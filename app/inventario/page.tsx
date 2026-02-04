@@ -59,7 +59,7 @@ export default function InventarioPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState('');
-  const [soloConStock, setSoloConStock] = useState(false);
+  const [soloConStock, setSoloConStock] = useState(true);
   const [bodegaId, setBodegaId] = useState<string>('');
   const [bodegas, setBodegas] = useState<Bodega[]>([]);
   const [ordenarPor, setOrdenarPor] = useState<OrdenarPorType>('nombre');
