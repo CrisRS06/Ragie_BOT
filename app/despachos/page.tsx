@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, Truck, Calendar, Search, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, XCircle } from 'lucide-react';
+import { Plus, Truck, Calendar, Search, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, XCircle, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,6 +21,7 @@ interface Despacho {
   motivoAnulacion?: string;
   receptorNombre: string | null;
   receptorCedula: string | null;
+  documentoReferencia: string | null;
   articulo: {
     sku: string;
     nombre: string;
@@ -344,20 +345,39 @@ export default function DespachosPage() {
                         {despacho.lote?.numeroLote || '-'}
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-center">
-                        {despacho.anulado ? (
-                          <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 rounded-full">
-                            Anulado
-                          </span>
-                        ) : (
+                        <div className="flex items-center justify-center gap-1">
+                          {/* Botón PDF */}
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setDespachoAnular(despacho)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                            title="Descargar boleta PDF"
+                            aria-label={`Descargar boleta PDF de ${despacho.articulo.nombre}`}
+                            onClick={() => window.open(
+                              despacho.documentoReferencia
+                                ? `/api/despachos/boleta/${despacho.documentoReferencia}`
+                                : `/api/despachos/${despacho.id}/documento`,
+                              '_blank'
+                            )}
                           >
-                            <XCircle className="w-4 h-4" />
+                            <FileText className="w-4 h-4" />
                           </Button>
-                        )}
+                          {/* Botón anular */}
+                          {despacho.anulado ? (
+                            <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 rounded-full">
+                              Anulado
+                            </span>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDespachoAnular(despacho)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

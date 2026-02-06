@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { Plus, Search, Edit, Trash2, Package, AlertCircle, Upload } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, AlertCircle, Upload, Info } from 'lucide-react';
 import { ImportArticulosModal } from '@/components/articulos/ImportArticulosModal';
 import { useAdminAccess } from '@/hooks/useRoleAccess';
 import { AccessDenied } from '@/components/ui/access-denied';
@@ -149,6 +149,22 @@ export default function AdminArticulosPage() {
                 Nuevo Artículo
               </Button>
             </Link>
+          </div>
+        </div>
+
+        {/* Banner informativo */}
+        <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-4">
+          <div className="flex">
+            <Info className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+            <div className="ml-3">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                Este es el catálogo de productos. Las cantidades de stock se actualizan automáticamente al registrar recepciones (entradas).
+                Para cargar inventario, vaya a{' '}
+                <Link href="/recepciones/nueva" className="font-semibold underline hover:text-blue-900 dark:hover:text-blue-100">
+                  Recepciones &rarr; Nueva Recepción
+                </Link>.
+              </p>
+            </div>
           </div>
         </div>
 

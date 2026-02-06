@@ -1,15 +1,18 @@
 /**
  * API: GET /api/despachos/[id]/documento
- * Genera el documento PDF de un despacho
- *
- * NOTA: Esta funcionalidad depende del servicio pdf.service que usa Prisma.
- * Stub implementado para version Supabase.
+ * Genera el documento PDF de un despacho individual
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { generarBoletaDespacho, type BoletaDespachoData } from '@/lib/pdf/despacho-pdf'
 
 export const dynamic = 'force-dynamic'
+
+/** Sanitiza un string para uso seguro en headers HTTP */
+function sanitizeForHeader(value: string): string {
+  return value.replace(/[^a-zA-Z0-9\-_]/g, '')
+}
 
 export async function GET(
   request: NextRequest,
@@ -42,56 +45,76 @@ export async function GET(
       )
     }
 
-    // Obtener articulo
-    const { data: articulo } = await supabase
-      .from('articulos')
-      .select('id, sku, nombre, descripcion_sigaf, unidad_medida')
-      .eq('id', movimiento.articulo_id)
-      .single()
+    // Cargar datos relacionados en paralelo
+    const [articuloResult, loteResult, unidadResult, bodegaResult] = await Promise.all([
+      supabase
+        .from('articulos')
+        .select('id, sku, nombre, unidad_medida')
+        .eq('id', movimiento.articulo_id)
+        .single(),
+      movimiento.lote_id
+        ? supabase
+            .from('lotes')
+            .select('id, numero_lote, fecha_vencimiento')
+            .eq('id', movimiento.lote_id)
+            .single()
+        : Promise.resolve({ data: null, error: null }),
+      movimiento.unidad_receptora_id
+        ? supabase
+            .from('unidades_receptoras')
+            .select('codigo, nombre')
+            .eq('id', movimiento.unidad_receptora_id)
+            .single()
+        : Promise.resolve({ data: null, error: null }),
+      movimiento.bodega_id
+        ? supabase
+            .from('bodegas')
+            .select('codigo, nombre')
+            .eq('id', movimiento.bodega_id)
+            .single()
+        : Promise.resolve({ data: null, error: null }),
+    ])
 
-    // Obtener lote si existe
-    let lote = null
-    if (movimiento.lote_id) {
-      const { data: loteData } = await supabase
-        .from('lotes')
-        .select('id, numero_lote, fecha_vencimiento')
-        .eq('id', movimiento.lote_id)
-        .single()
-      lote = loteData
+    if (articuloResult.error) {
+      console.error('Error al cargar artículo para PDF:', articuloResult.error)
     }
 
-    // Obtener unidad receptora si existe
-    let unidadReceptora = null
-    if (movimiento.unidad_receptora_id) {
-      const { data: unidadData } = await supabase
-        .from('unidades_receptoras')
-        .select('nombre')
-        .eq('id', movimiento.unidad_receptora_id)
-        .single()
-      unidadReceptora = unidadData
-    }
+    const articulo = articuloResult.data
+    const lote = loteResult.data
+    const unidadReceptora = unidadResult.data
+    const bodega = bodegaResult.data
 
-    // Esta funcionalidad requiere el servicio pdf.service
-    // que usa funciones de generacion de PDF complejas.
-    // Por ahora, retornamos informacion del despacho en JSON.
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Generacion de PDF no implementada en version Supabase',
-        message: 'Esta operacion requiere migracion del servicio pdf.service a Supabase',
-        despacho: {
-          id: despachoId,
-          fecha: movimiento.created_at,
-          receptor: movimiento.receptor_nombre || 'No especificado',
-          cedulaReceptor: movimiento.receptor_cedula,
-          unidadReceptora: unidadReceptora?.nombre,
-          articulo,
-          lote,
-          cantidad: movimiento.cantidad,
-        },
+    // Construir datos para el PDF
+    const boletaData: BoletaDespachoData = {
+      referencia: movimiento.documento_referencia || despachoId,
+      fecha: movimiento.created_at || new Date().toISOString(),
+      bodega,
+      receptor: {
+        nombre: movimiento.receptor_nombre || 'No especificado',
+        cedula: movimiento.receptor_cedula,
+        unidadReceptora,
       },
-      { status: 501 }
-    )
+      lineas: [{
+        sku: articulo?.sku || 'N/A',
+        articulo: articulo?.nombre || 'Artículo desconocido',
+        cantidad: movimiento.cantidad,
+        unidadMedida: articulo?.unidad_medida || 'UND',
+        lote: lote?.numero_lote || null,
+        fechaVencimiento: lote?.fecha_vencimiento || null,
+      }],
+      observaciones: movimiento.observaciones || null,
+    }
+
+    // Generar PDF
+    const pdfBuffer = await generarBoletaDespacho(boletaData)
+    const safeId = sanitizeForHeader(despachoId.substring(0, 8))
+
+    return new NextResponse(new Uint8Array(pdfBuffer), {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="boleta-despacho-${safeId}.pdf"`,
+      },
+    })
   } catch (error) {
     console.error('Error al generar documento de despacho:', error)
     return NextResponse.json(

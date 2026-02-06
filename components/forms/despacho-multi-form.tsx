@@ -21,6 +21,7 @@ import {
   AlertCircle,
   Package,
   Loader2,
+  FileText,
 } from 'lucide-react';
 
 interface UnidadReceptora {
@@ -74,6 +75,7 @@ export function DespachoMultiForm() {
   const [success, setSuccess] = useState<{
     resultados: ResultadoLinea[];
     totalArticulos: number;
+    documentoReferencia: string;
   } | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -211,6 +213,9 @@ export function DespachoMultiForm() {
     try {
       const lineasValidas = lineas.filter((l) => l.articuloId && parseFloat(l.cantidad) > 0);
 
+      // Generar un ID de referencia común para agrupar todas las líneas del despacho
+      const documentoReferencia = crypto.randomUUID();
+
       // Procesar todas las líneas en paralelo usando Promise.all
       const promesas = lineasValidas.map(async (linea) => {
         try {
@@ -225,6 +230,7 @@ export function DespachoMultiForm() {
               unidadReceptoraId,
               observaciones: observaciones || undefined,
               bodegaId: bodegaId || undefined,
+              documentoReferencia,
             }),
           });
 
@@ -266,6 +272,7 @@ export function DespachoMultiForm() {
         setSuccess({
           resultados,
           totalArticulos: exitosos,
+          documentoReferencia,
         });
 
         // Limpiar formulario
@@ -318,7 +325,15 @@ export function DespachoMultiForm() {
                   </li>
                 ))}
               </ul>
-              <div className="mt-3">
+              <div className="mt-3 flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => window.open(`/api/despachos/boleta/${success.documentoReferencia}`, '_blank')}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Descargar Boleta PDF
+                </Button>
                 <Button
                   type="button"
                   variant="outline"

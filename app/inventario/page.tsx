@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
+import { FileText } from 'lucide-react';
 
 interface BodegaStock {
   bodegaId: string;
@@ -138,9 +139,23 @@ export default function InventarioPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Inventario</h1>
-          <p className="text-gray-600 dark:text-gray-400">Vista general del stock por artículo</p>
+          <p className="text-gray-600 dark:text-gray-400">
+            Consulta de existencias actuales. El inventario se actualiza con cada recepción (entrada) y despacho (salida).
+          </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              const params = new URLSearchParams();
+              params.set('soloConStock', String(soloConStock));
+              if (bodegaId) params.set('bodegaId', bodegaId);
+              window.open(`/api/exportar/inventario?${params.toString()}`, '_blank');
+            }}
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            Exportar PDF
+          </Button>
           <Link href="/recepciones/nueva">
             <Button variant="outline">Nueva Recepción</Button>
           </Link>

@@ -206,6 +206,7 @@ export async function GET(request: NextRequest) {
         motivoAnulacion: mov.motivo_anulacion,
         receptorNombre: mov.receptor_nombre,
         receptorCedula: mov.receptor_cedula,
+        documentoReferencia: mov.documento_referencia || null,
         articulo: articulo ? {
           sku: articulo.sku,
           nombre: articulo.nombre,

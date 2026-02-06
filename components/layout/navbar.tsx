@@ -83,7 +83,7 @@ const navigation: NavItem[] = [
 
 const adminSubNavigation: AdminSubItem[] = [
   {
-    name: 'Artículos',
+    name: 'Catálogo de Productos',
     href: '/admin/articulos',
     icon: Package,
   },
