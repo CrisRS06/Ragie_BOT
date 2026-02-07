@@ -77,9 +77,50 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Fetch user profiles for usuario_id
+    const usuarioIds = [...new Set((movimientos || []).map(m => m.usuario_id).filter((id): id is string => id !== null))]
+    const usuariosMap = new Map<string, string>()
+    if (usuarioIds.length > 0) {
+      const { data: { users } } = await supabaseAdmin.auth.admin.listUsers()
+      for (const u of users || []) {
+        if (usuarioIds.includes(u.id)) {
+          usuariosMap.set(u.id, u.user_metadata?.nombre || u.email || 'Desconocido')
+        }
+      }
+    }
+
+    // Transform response to camelCase for frontend
+    const recepcionesTransformed = (movimientos || []).map((mov) => {
+      const articulo = mov.articulo as { sku: string; nombre: string; unidad_medida: string } | null
+      const lote = mov.lote as { id: string; numero_lote: string | null; cantidad_inicial: number; cantidad_disponible: number; fecha_vencimiento: string; proveedor: string | null; bodega_id: string | null } | null
+
+      return {
+        id: mov.id,
+        cantidad: mov.cantidad,
+        timestamp: mov.created_at,
+        anulado: mov.anulado,
+        articulo: articulo ? {
+          sku: articulo.sku,
+          nombre: articulo.nombre,
+          unidadMedida: articulo.unidad_medida,
+        } : null,
+        lote: lote ? {
+          id: lote.id,
+          numeroLote: lote.numero_lote,
+          cantidadInicial: lote.cantidad_inicial,
+          cantidadDisponible: lote.cantidad_disponible,
+          fechaVencimiento: lote.fecha_vencimiento,
+          proveedor: lote.proveedor,
+        } : null,
+        usuario: mov.usuario_id ? {
+          nombre: usuariosMap.get(mov.usuario_id) || 'Desconocido',
+        } : null,
+      }
+    })
+
     return NextResponse.json({
       success: true,
-      data: movimientos,
+      data: recepcionesTransformed,
       total: count || 0,
       limite,
       offset,
