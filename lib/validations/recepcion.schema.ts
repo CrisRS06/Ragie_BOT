@@ -13,7 +13,7 @@ export const createRecepcionSchema = z.object({
   fechaVencimiento: z.coerce.date().refine(
     (date) => date > new Date(),
     'La fecha de vencimiento debe ser futura'
-  ),
+  ).optional(),
   numeroLote: z.string().optional(),
   proveedor: z.string().optional(),
   costoUnitario: z.number().positive().optional(),

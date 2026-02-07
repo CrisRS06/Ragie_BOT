@@ -16,7 +16,7 @@ const createRecepcionSchema = z.object({
   cantidad: z.number().positive('La cantidad debe ser mayor a 0'),
   fechaVencimiento: z.string().refine((date) => !isNaN(Date.parse(date)), {
     message: 'Fecha de vencimiento invalida',
-  }),
+  }).optional(),
   costoUnitario: z.number().min(0).optional(),
   numeroLote: z.string().optional(),
   proveedor: z.string().optional(),
@@ -141,9 +141,9 @@ export async function POST(request: NextRequest) {
     const { data: loteId, error: recError } = await supabaseAdmin.rpc('receive_inventory', {
       p_articulo_id: data.articuloId,
       p_cantidad: data.cantidad,
-      p_fecha_vencimiento: data.fechaVencimiento,
       p_costo_unitario: data.costoUnitario || 0,
       p_usuario_id: user.id,
+      p_fecha_vencimiento: data.fechaVencimiento || undefined,
       p_proveedor: data.proveedor || undefined,
       p_numero_lote: data.numeroLote || undefined,
       p_documento: data.documentoReferencia || undefined,

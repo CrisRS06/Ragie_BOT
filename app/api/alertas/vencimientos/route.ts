@@ -61,10 +61,10 @@ export async function GET(request: NextRequest) {
       throw error
     }
 
-    // Procesar alertas
-    const alertas = (lotes || []).map((lote) => {
+    // Procesar alertas (solo lotes con fecha de vencimiento)
+    const alertas = (lotes || []).filter((lote) => lote.fecha_vencimiento).map((lote) => {
       const diasHastaVencimiento = Math.ceil(
-        (new Date(lote.fecha_vencimiento).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        (new Date(lote.fecha_vencimiento!).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
       )
 
       let severidad: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA'

@@ -11,9 +11,9 @@ import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
 
-// Schema de validacion
+// Schema de validacion - codigo es opcional (se auto-genera)
 const createProveedorSchema = z.object({
-  codigo: z.string().min(2, 'Codigo debe tener al menos 2 caracteres').max(20),
+  codigo: z.string().max(20).optional().nullable(),
   nombre: z.string().min(3, 'Nombre debe tener al menos 3 caracteres').max(200),
   ruc: z.string().max(20).optional().nullable(),
   direccion: z.string().max(500).optional().nullable(),
@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const includeInactive = searchParams.get('includeInactive') === 'true'
+    const searchQuery = searchParams.get('q')
 
     let query = supabase
       .from('proveedores')
@@ -47,6 +48,10 @@ export async function GET(request: NextRequest) {
 
     if (!includeInactive) {
       query = query.eq('activo', true)
+    }
+
+    if (searchQuery && searchQuery.length >= 2) {
+      query = query.or(`nombre.ilike.%${searchQuery}%,codigo.ilike.%${searchQuery}%`)
     }
 
     const { data: proveedores, error } = await query
@@ -105,11 +110,32 @@ export async function POST(request: NextRequest) {
 
     const data = validacion.data
 
+    // Auto-generar código si no se proporcionó
+    let codigo = data.codigo?.trim().toUpperCase() || ''
+    if (!codigo) {
+      const { data: lastProv } = await supabaseAdmin
+        .from('proveedores')
+        .select('codigo')
+        .ilike('codigo', 'PROV-%')
+        .order('codigo', { ascending: false })
+        .limit(1)
+        .single()
+
+      let nextNum = 1
+      if (lastProv?.codigo) {
+        const match = lastProv.codigo.match(/PROV-(\d+)/)
+        if (match) {
+          nextNum = parseInt(match[1], 10) + 1
+        }
+      }
+      codigo = `PROV-${String(nextNum).padStart(3, '0')}`
+    }
+
     // Verificar que el codigo no exista
     const { data: existente } = await supabase
       .from('proveedores')
       .select('id')
-      .eq('codigo', data.codigo.toUpperCase())
+      .eq('codigo', codigo)
       .single()
 
     if (existente) {
@@ -123,7 +149,7 @@ export async function POST(request: NextRequest) {
     const { data: proveedor, error } = await supabaseAdmin
       .from('proveedores')
       .insert({
-        codigo: data.codigo.toUpperCase(),
+        codigo,
         nombre: data.nombre,
         ruc: data.ruc || null,
         direccion: data.direccion || null,

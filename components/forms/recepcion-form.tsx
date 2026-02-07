@@ -23,8 +23,6 @@ export function RecepcionForm() {
   const [formData, setFormData] = useState({
     articuloId: '',
     cantidad: '',
-    fechaVencimiento: '',
-    numeroLote: '',
     proveedor: '',
     costoUnitario: '',
     ubicacion: '',
@@ -61,15 +59,6 @@ export function RecepcionForm() {
       errors.cantidad = 'La cantidad debe ser mayor a 0';
     }
 
-    if (!formData.fechaVencimiento) {
-      errors.fechaVencimiento = 'La fecha de vencimiento es obligatoria';
-    } else {
-      const fechaVenc = new Date(formData.fechaVencimiento);
-      if (fechaVenc <= new Date()) {
-        errors.fechaVencimiento = 'La fecha debe ser futura';
-      }
-    }
-
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -90,8 +79,6 @@ export function RecepcionForm() {
       const payload = {
         articuloId: formData.articuloId,
         cantidad: parseFloat(formData.cantidad),
-        fechaVencimiento: new Date(formData.fechaVencimiento).toISOString(),
-        numeroLote: formData.numeroLote || undefined,
         proveedor: formData.proveedor || undefined,
         costoUnitario: formData.costoUnitario
           ? parseFloat(formData.costoUnitario)
@@ -120,8 +107,6 @@ export function RecepcionForm() {
       setFormData({
         articuloId: '',
         cantidad: '',
-        fechaVencimiento: '',
-        numeroLote: '',
         proveedor: '',
         costoUnitario: '',
         ubicacion: '',
@@ -247,37 +232,6 @@ export function RecepcionForm() {
           onChange={handleChange}
           disabled={loading}
           error={fieldErrors.cantidad}
-        />
-      </div>
-
-      {/* Fecha de Vencimiento */}
-      <div>
-        <Label htmlFor="fechaVencimiento" required>
-          Fecha de Vencimiento
-        </Label>
-        <Input
-          id="fechaVencimiento"
-          name="fechaVencimiento"
-          type="date"
-          value={formData.fechaVencimiento}
-          onChange={handleChange}
-          disabled={loading}
-          error={fieldErrors.fechaVencimiento}
-          min={new Date().toISOString().split('T')[0]}
-        />
-      </div>
-
-      {/* Número de Lote */}
-      <div>
-        <Label htmlFor="numeroLote">Número de Lote</Label>
-        <Input
-          id="numeroLote"
-          name="numeroLote"
-          type="text"
-          placeholder="Ej: LOT-2025-001"
-          value={formData.numeroLote}
-          onChange={handleChange}
-          disabled={loading}
         />
       </div>
 

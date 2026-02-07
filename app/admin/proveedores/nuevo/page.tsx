@@ -19,7 +19,6 @@ export default function NuevoProveedorPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
-    codigo: '',
     nombre: '',
     ruc: '',
     direccion: '',
@@ -40,10 +39,6 @@ export default function NuevoProveedorPage() {
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
-
-    if (!formData.codigo || formData.codigo.length < 2) {
-      errors.codigo = 'Código debe tener al menos 2 caracteres';
-    }
 
     if (!formData.nombre || formData.nombre.length < 3) {
       errors.nombre = 'Nombre debe tener al menos 3 caracteres';
@@ -116,32 +111,21 @@ export default function NuevoProveedorPage() {
           )}
 
           <Card className="p-6 space-y-6">
-            {/* Código y Nombre */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="codigo" required>Código</Label>
-                <Input
-                  id="codigo"
-                  name="codigo"
-                  placeholder="Ej: PROV-001"
-                  value={formData.codigo}
-                  onChange={handleChange}
-                  disabled={loading}
-                  error={fieldErrors.codigo}
-                />
-              </div>
-              <div>
-                <Label htmlFor="nombre" required>Nombre</Label>
-                <Input
-                  id="nombre"
-                  name="nombre"
-                  placeholder="Nombre del proveedor"
-                  value={formData.nombre}
-                  onChange={handleChange}
-                  disabled={loading}
-                  error={fieldErrors.nombre}
-                />
-              </div>
+            {/* Nombre */}
+            <div>
+              <Label htmlFor="nombre" required>Nombre</Label>
+              <Input
+                id="nombre"
+                name="nombre"
+                placeholder="Nombre del proveedor"
+                value={formData.nombre}
+                onChange={handleChange}
+                disabled={loading}
+                error={fieldErrors.nombre}
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                El código se asignará automáticamente (PROV-001, PROV-002, ...)
+              </p>
             </div>
 
             {/* RUC */}

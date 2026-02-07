@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -123,7 +124,7 @@ export async function POST(request: NextRequest) {
     const numero = `REC-${anio}${mes}-${secuencial}`
 
     // Crear documento en estado BORRADOR
-    const { data: documento, error: docError } = await supabase
+    const { data: documento, error: docError } = await supabaseAdmin
       .from('documentos_recepcion')
       .insert({
         numero,
@@ -160,18 +161,18 @@ export async function POST(request: NextRequest) {
       ubicacion: detalle.ubicacion || null,
     }))
 
-    const { error: detallesError } = await supabase
+    const { error: detallesError } = await supabaseAdmin
       .from('detalles_recepcion')
       .insert(detallesInsert)
 
     if (detallesError) {
       // Eliminar documento si falla
-      await supabase.from('documentos_recepcion').delete().eq('id', documento.id)
+      await supabaseAdmin.from('documentos_recepcion').delete().eq('id', documento.id)
       throw detallesError
     }
 
     // Registrar en audit_log
-    await supabase.from('audit_log').insert({
+    await supabaseAdmin.from('audit_log').insert({
       usuario_id: user.id,
       accion: 'CREAR_DOCUMENTO_RECEPCION',
       entidad: 'documentos_recepcion',
@@ -186,7 +187,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      documento: {
+      data: {
         id: documento.id,
         numero: documento.numero,
         estado: documento.estado,

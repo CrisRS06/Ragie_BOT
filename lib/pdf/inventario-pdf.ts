@@ -125,15 +125,20 @@ export async function generarReporteInventario(datos: ReporteInventarioData): Pr
       // Filas
       doc.fontSize(8).font('Helvetica');
       let totalUnidades = 0;
-      const rowHeight = 16;
+      const minRowHeight = 16;
 
       for (let i = 0; i < datos.articulos.length; i++) {
         const articulo = datos.articulos[i];
+
+        // Calculate dynamic row height based on article name length
+        const textHeight = doc.heightOfString(articulo.nombre, { width: colWidths.nombre - 8 });
+        const rowHeight = Math.max(minRowHeight, textHeight + 8);
 
         // Verificar si necesitamos nueva página
         if (doc.y + rowHeight > doc.page.height - 60) {
           doc.addPage();
           drawTableHeader();
+          doc.fontSize(8).font('Helvetica');
         }
 
         const rowTop = doc.y;
@@ -147,7 +152,7 @@ export async function generarReporteInventario(datos: ReporteInventarioData): Pr
 
         doc.text(articulo.sku, x + 4, rowTop + 4, { width: colWidths.sku });
         x += colWidths.sku;
-        doc.text(articulo.nombre, x + 4, rowTop + 4, { width: colWidths.nombre, ellipsis: true });
+        doc.text(articulo.nombre, x + 4, rowTop + 4, { width: colWidths.nombre - 8 });
         x += colWidths.nombre;
         doc.text(articulo.unidadMedida, x + 4, rowTop + 4, { width: colWidths.um });
         x += colWidths.um;

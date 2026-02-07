@@ -222,13 +222,7 @@ export default function RecepcionesPage() {
                     Cantidad
                   </th>
                   <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Lote
-                  </th>
-                  <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Proveedor
-                  </th>
-                  <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Vencimiento
                   </th>
                   <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Usuario
@@ -238,14 +232,14 @@ export default function RecepcionesPage() {
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-3 sm:px-6 py-12 text-center">
+                    <td colSpan={5} className="px-3 sm:px-6 py-12 text-center">
                       <RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto" />
                       <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Cargando...</p>
                     </td>
                   </tr>
                 ) : recepcionesFiltradas.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-3 sm:px-6 py-12 text-center">
+                    <td colSpan={5} className="px-3 sm:px-6 py-12 text-center">
                       <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                       <p className="text-gray-600 dark:text-gray-400">No se encontraron recepciones</p>
                     </td>
@@ -275,24 +269,8 @@ export default function RecepcionesPage() {
                           +{recepcion.cantidad} {recepcion.articulo.unidadMedida}
                         </span>
                       </td>
-                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {recepcion.lote?.codigoLote || recepcion.lote?.numeroLote || '-'}
-                      </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                         {recepcion.lote?.proveedor || '-'}
-                      </td>
-                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm">
-                        {recepcion.lote?.fechaVencimiento ? (
-                          <span className={
-                            new Date(recepcion.lote.fechaVencimiento) < new Date()
-                              ? 'text-red-600 dark:text-red-400'
-                              : 'text-gray-900 dark:text-white'
-                          }>
-                            {new Date(recepcion.lote.fechaVencimiento).toLocaleDateString('es-CR')}
-                          </span>
-                        ) : (
-                          '-'
-                        )}
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                         {recepcion.usuario?.nombre || '-'}

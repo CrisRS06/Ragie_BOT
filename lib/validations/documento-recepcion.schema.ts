@@ -26,7 +26,9 @@ export const lineaRecepcionSchema = z.object({
     .refine(
       (date) => date > new Date(),
       'La fecha de vencimiento debe ser futura'
-    ),
+    )
+    .optional()
+    .nullable(),
   numeroLoteProveedor: z
     .string()
     .max(100, 'El número de lote no puede exceder 100 caracteres')

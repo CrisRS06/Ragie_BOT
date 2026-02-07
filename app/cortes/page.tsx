@@ -18,10 +18,7 @@ interface Corte {
   totalArticulos: number;
   totalLotes: number;
   completado: boolean;
-  solicitadoPor: {
-    nombre: string;
-    email: string;
-  } | null;
+  solicitadoPor: string | null;
 }
 
 export default function CortesPage() {

@@ -164,10 +164,14 @@ export async function generarBoletaDespacho(datos: BoletaDespachoData): Promise<
       // Filas de datos
       doc.fontSize(8).font('Helvetica');
       let totalUnidades = 0;
-      const rowHeight = 18;
+      const minRowHeight = 18;
 
       for (let i = 0; i < datos.lineas.length; i++) {
         const linea = datos.lineas[i];
+
+        // Calculate dynamic row height based on article name length
+        const textHeight = doc.heightOfString(linea.articulo, { width: colWidths.articulo - 8 });
+        const rowHeight = Math.max(minRowHeight, textHeight + 8);
 
         // Verificar si necesitamos nueva página
         if (doc.y + rowHeight > doc.page.height - 60) {
@@ -181,7 +185,7 @@ export async function generarBoletaDespacho(datos: BoletaDespachoData): Promise<
 
         // Alternar color de fondo
         if (i % 2 === 1) {
-          doc.rect(x, rowTop, pageWidth, 16).fill('#f9fafb');
+          doc.rect(x, rowTop, pageWidth, rowHeight).fill('#f9fafb');
           doc.fill('#000000');
         }
 
@@ -191,7 +195,7 @@ export async function generarBoletaDespacho(datos: BoletaDespachoData): Promise<
 
         doc.text(linea.sku, x + 4, rowTop + 4, { width: colWidths.sku });
         x += colWidths.sku;
-        doc.text(linea.articulo, x + 4, rowTop + 4, { width: colWidths.articulo, ellipsis: true });
+        doc.text(linea.articulo, x + 4, rowTop + 4, { width: colWidths.articulo - 8 });
         x += colWidths.articulo;
         doc.text(Math.abs(linea.cantidad).toString(), x + 4, rowTop + 4, { width: colWidths.cantidad - 8, align: 'right' });
         x += colWidths.cantidad;

@@ -68,19 +68,21 @@ export async function GET(
 
     // Procesar lotes con informacion adicional
     const lotesConInfo = (lotes || []).map((lote, index) => {
-      const diasHastaVencimiento = Math.ceil(
-        (new Date(lote.fecha_vencimiento).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-      )
+      const diasHastaVencimiento = lote.fecha_vencimiento
+        ? Math.ceil((new Date(lote.fecha_vencimiento).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        : null
 
       let severidadVencimiento: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA' | 'OK' = 'OK'
-      if (diasHastaVencimiento < 0) {
-        severidadVencimiento = 'CRITICA'
-      } else if (diasHastaVencimiento <= 7) {
-        severidadVencimiento = 'ALTA'
-      } else if (diasHastaVencimiento <= 15) {
-        severidadVencimiento = 'MEDIA'
-      } else if (diasHastaVencimiento <= 30) {
-        severidadVencimiento = 'BAJA'
+      if (diasHastaVencimiento !== null) {
+        if (diasHastaVencimiento < 0) {
+          severidadVencimiento = 'CRITICA'
+        } else if (diasHastaVencimiento <= 7) {
+          severidadVencimiento = 'ALTA'
+        } else if (diasHastaVencimiento <= 15) {
+          severidadVencimiento = 'MEDIA'
+        } else if (diasHastaVencimiento <= 30) {
+          severidadVencimiento = 'BAJA'
+        }
       }
 
       return {
@@ -96,7 +98,7 @@ export async function GET(
         fechaIngresoTs: lote.fecha_ingreso,
         fechaVencimiento: lote.fecha_vencimiento,
         diasHastaVencimiento,
-        vencido: diasHastaVencimiento < 0,
+        vencido: diasHastaVencimiento !== null && diasHastaVencimiento < 0,
         severidadVencimiento,
         proveedor: lote.proveedor,
         costoUnitario: lote.costo_unitario,
@@ -110,7 +112,7 @@ export async function GET(
     const lotesActivos = lotesConInfo.filter((l) => !l.agotado).length
     const lotesVencidos = lotesConInfo.filter((l) => l.vencido).length
     const lotesProximosAVencer = lotesConInfo.filter(
-      (l) => !l.vencido && l.diasHastaVencimiento <= 30
+      (l) => !l.vencido && l.diasHastaVencimiento !== null && l.diasHastaVencimiento <= 30
     ).length
 
     return NextResponse.json({

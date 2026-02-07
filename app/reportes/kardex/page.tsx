@@ -3,14 +3,15 @@
 /**
  * Página: Reporte Kardex por Producto
  * FASE 6: Historial de movimientos con saldos acumulativos PEPS
+ * Soporta selección múltiple de artículos
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArticuloMultiSelector } from '@/components/ui/articulo-multi-selector';
 import Link from 'next/link';
 
 interface Articulo {
@@ -66,61 +67,45 @@ interface KardexData {
 }
 
 export default function KardexPage() {
-  const [articulos, setArticulos] = useState<Articulo[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loadingArticulos, setLoadingArticulos] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [kardexData, setKardexData] = useState<KardexData | null>(null);
+  const [kardexResults, setKardexResults] = useState<KardexData[]>([]);
 
   // Filtros
-  const [articuloId, setArticuloId] = useState('');
+  const [selectedArticulos, setSelectedArticulos] = useState<Articulo[]>([]);
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
 
-  // Cargar artículos al montar
-  useEffect(() => {
-    fetchArticulos();
-  }, []);
-
-  const fetchArticulos = async () => {
-    try {
-      setLoadingArticulos(true);
-      const response = await fetch('/api/articulos');
-      const data = await response.json();
-      if (data.success) {
-        setArticulos(data.data);
-      }
-    } catch (err) {
-      console.error('Error al cargar artículos:', err);
-    } finally {
-      setLoadingArticulos(false);
-    }
-  };
-
   const generarKardex = async () => {
-    if (!articuloId) {
-      setError('Seleccione un artículo');
+    if (selectedArticulos.length === 0) {
+      setError('Seleccione al menos un artículo');
       return;
     }
 
     setLoading(true);
     setError(null);
-    setKardexData(null);
+    setKardexResults([]);
 
     try {
-      const params = new URLSearchParams();
-      params.set('articuloId', articuloId);
-      if (fechaDesde) params.set('fechaDesde', fechaDesde);
-      if (fechaHasta) params.set('fechaHasta', fechaHasta);
+      const results: KardexData[] = [];
 
-      const response = await fetch(`/api/reportes/kardex?${params.toString()}`);
-      const data = await response.json();
+      for (const art of selectedArticulos) {
+        const params = new URLSearchParams();
+        params.set('articuloId', art.id);
+        if (fechaDesde) params.set('fechaDesde', fechaDesde);
+        if (fechaHasta) params.set('fechaHasta', fechaHasta);
 
-      if (!data.success) {
-        throw new Error(data.error || 'Error al generar Kardex');
+        const response = await fetch(`/api/reportes/kardex?${params.toString()}`);
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.error || `Error al generar Kardex para ${art.nombre}`);
+        }
+
+        results.push(data);
       }
 
-      setKardexData(data);
+      setKardexResults(results);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al generar Kardex');
     } finally {
@@ -160,6 +145,8 @@ export default function KardexPage() {
     }
   };
 
+  const articuloIds = selectedArticulos.map(a => a.id);
+
   return (
     <div className="container mx-auto py-6 px-4">
       {/* Header */}
@@ -180,24 +167,13 @@ export default function KardexPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Selector de Artículo */}
-            <div>
-              <Label htmlFor="articuloId" required>Artículo</Label>
-              <Select
-                id="articuloId"
-                value={articuloId}
-                onChange={(e) => setArticuloId(e.target.value)}
-                disabled={loadingArticulos}
-              >
-                <option value="">
-                  {loadingArticulos ? 'Cargando...' : 'Seleccione un artículo'}
-                </option>
-                {articulos.map((art) => (
-                  <option key={art.id} value={art.id}>
-                    {art.sku} - {art.nombre}
-                  </option>
-                ))}
-              </Select>
+            {/* Multi-selector de Artículos */}
+            <div className="md:col-span-2">
+              <ArticuloMultiSelector
+                values={articuloIds}
+                onChange={(arts) => setSelectedArticulos(arts)}
+                label="Artículos"
+              />
             </div>
 
             {/* Fecha Desde */}
@@ -221,18 +197,17 @@ export default function KardexPage() {
                 onChange={(e) => setFechaHasta(e.target.value)}
               />
             </div>
+          </div>
 
-            {/* Botón Generar */}
-            <div className="flex items-end">
-              <Button
-                onClick={generarKardex}
-                isLoading={loading}
-                disabled={loading || !articuloId}
-                className="w-full"
-              >
-                Generar Kardex
-              </Button>
-            </div>
+          {/* Botón Generar */}
+          <div className="mt-4 flex justify-end">
+            <Button
+              onClick={generarKardex}
+              isLoading={loading}
+              disabled={loading || selectedArticulos.length === 0}
+            >
+              Generar Kardex ({selectedArticulos.length} artículo{selectedArticulos.length !== 1 ? 's' : ''})
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -244,20 +219,24 @@ export default function KardexPage() {
         </div>
       )}
 
-      {/* Resultados */}
-      {kardexData && (
-        <>
-          {/* FASE 7: Botón Exportar Excel */}
-          <div className="mb-4 flex justify-end">
+      {/* Resultados - Stacked per article */}
+      {kardexResults.map((kardexData, idx) => (
+        <div key={kardexData.articulo.id} className={idx > 0 ? 'mt-8 pt-8 border-t-2 border-gray-300' : ''}>
+          {/* Export button per article */}
+          <div className="mb-4 flex justify-between items-center">
+            <h2 className="text-xl font-bold text-gray-800">
+              {kardexData.articulo.sku} - {kardexData.articulo.nombre}
+            </h2>
             <Button
               onClick={() => {
                 const params = new URLSearchParams();
-                params.set('articuloId', articuloId);
+                params.set('articuloId', kardexData.articulo.id);
                 if (fechaDesde) params.set('fechaDesde', fechaDesde);
                 if (fechaHasta) params.set('fechaHasta', fechaHasta);
                 window.open(`/api/exportar/kardex?${params.toString()}`, '_blank');
               }}
               variant="outline"
+              size="sm"
             >
               Exportar a Excel
             </Button>
@@ -288,10 +267,6 @@ export default function KardexPage() {
                   <div className="flex justify-between">
                     <dt className="text-gray-500">Unidad:</dt>
                     <dd>{kardexData.articulo.unidadMedida}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-gray-500">IVA:</dt>
-                    <dd>{(kardexData.articulo.ivaPercent * 100).toFixed(0)}%</dd>
                   </div>
                 </dl>
               </CardContent>
@@ -398,15 +373,17 @@ export default function KardexPage() {
               )}
             </CardContent>
           </Card>
+        </div>
+      ))}
 
-          {/* Nota PEPS */}
-          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-700">
-              <strong>Nota:</strong> Los valores de salida se calculan usando el método PEPS (Primeras Entradas, Primeras Salidas),
-              tomando el costo unitario del lote más antiguo disponible al momento de cada despacho.
-            </p>
-          </div>
-        </>
+      {/* Nota PEPS */}
+      {kardexResults.length > 0 && (
+        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-700">
+            <strong>Nota:</strong> Los valores de salida se calculan usando el método PEPS (Primeras Entradas, Primeras Salidas),
+            tomando el costo unitario del lote más antiguo disponible al momento de cada despacho.
+          </p>
+        </div>
       )}
     </div>
   );

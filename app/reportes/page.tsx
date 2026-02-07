@@ -44,31 +44,6 @@ export default function ReportesPage() {
     }
   };
 
-  const generarReporteVencimientos = async () => {
-    setGenerando('vencimientos');
-    setResultado(null);
-    try {
-      const response = await fetch('/api/informes/vencimientos');
-      const data = await response.json();
-
-      setResultado({
-        tipo: 'Reporte de Vencimientos',
-        mensaje: data.success
-          ? `Se encontraron ${data.totalAlertas} lotes con alertas de vencimiento`
-          : data.error,
-        success: data.success,
-      });
-    } catch (err) {
-      setResultado({
-        tipo: 'Reporte de Vencimientos',
-        mensaje: 'Error al generar reporte',
-        success: false,
-      });
-    } finally {
-      setGenerando(null);
-    }
-  };
-
   return (
     <div className="container mx-auto py-6 px-4">
       {/* Header */}
@@ -160,32 +135,6 @@ export default function ReportesPage() {
           </CardContent>
         </Card>
 
-        {/* Reporte de Vencimientos */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Reporte de Vencimientos</CardTitle>
-            <CardDescription>
-              Lotes próximos a vencer y productos ya vencidos
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <p className="text-xs text-gray-500">
-                Alertas FEFO informativas. No afecta el orden de despacho PEPS.
-              </p>
-              <Button
-                onClick={generarReporteVencimientos}
-                isLoading={generando === 'vencimientos'}
-                disabled={generando !== null}
-                variant="outline"
-                className="w-full"
-              >
-                Ver Vencimientos
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Acceso Rápido a Cortes */}
         <Card>
           <CardHeader>
@@ -230,27 +179,6 @@ export default function ReportesPage() {
           </CardContent>
         </Card>
 
-        {/* Alertas */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Alertas del Sistema</CardTitle>
-            <CardDescription>
-              Notificaciones de vencimientos, stock bajo y pendientes
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <p className="text-xs text-gray-500">
-                Resumen de alertas activas por severidad y tipo.
-              </p>
-              <Link href="/inventario">
-                <Button variant="outline" className="w-full">
-                  Ver Inventario
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Info regulatorio */}

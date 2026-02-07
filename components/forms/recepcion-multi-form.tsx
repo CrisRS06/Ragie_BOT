@@ -9,10 +9,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { BodegaSelector } from '@/components/ui/bodega-selector';
 import { ArticuloSelector, Articulo } from '@/components/ui/articulo-selector';
+import { ProveedorSelector } from '@/components/ui/proveedor-selector';
 import {
   Plus,
   Trash2,
@@ -23,20 +23,12 @@ import {
   Loader2,
 } from 'lucide-react';
 
-interface Proveedor {
-  id: string;
-  codigo: string;
-  nombre: string;
-}
-
 interface LineaFormData {
   id: string; // ID temporal para React keys
   articuloId: string;
   articulo: Articulo | null; // Artículo seleccionado completo
   cantidad: string;
   costoUnitario: string;
-  fechaVencimiento: string;
-  numeroLoteProveedor: string;
   ubicacion: string;
 }
 
@@ -46,16 +38,10 @@ const emptyLinea = (): LineaFormData => ({
   articulo: null,
   cantidad: '',
   costoUnitario: '',
-  fechaVencimiento: '',
-  numeroLoteProveedor: '',
   ubicacion: '',
 });
 
 export function RecepcionMultiForm() {
-  // Estado de datos de referencia
-  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
-
   // Estado del formulario - Encabezado
   const [proveedorId, setProveedorId] = useState('');
   const [bodegaId, setBodegaId] = useState('');
@@ -74,25 +60,6 @@ export function RecepcionMultiForm() {
     id: string;
   } | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  // Cargar datos al montar
-  useEffect(() => {
-    fetchProveedores().finally(() => {
-      setLoadingData(false);
-    });
-  }, []);
-
-  const fetchProveedores = async () => {
-    try {
-      const response = await fetch('/api/proveedores');
-      const data = await response.json();
-      if (data.success) {
-        setProveedores(data.data);
-      }
-    } catch (err) {
-      console.error('Error al cargar proveedores:', err);
-    }
-  };
 
   // Agregar línea
   const agregarLinea = useCallback(() => {
@@ -185,15 +152,6 @@ export function RecepcionMultiForm() {
         errors[`linea_${linea.id}_cantidad`] = 'La cantidad debe ser mayor a 0';
       }
 
-      if (!linea.fechaVencimiento) {
-        errors[`linea_${linea.id}_fechaVencimiento`] = 'La fecha de vencimiento es obligatoria';
-      } else {
-        const fechaVenc = new Date(linea.fechaVencimiento);
-        if (fechaVenc <= new Date()) {
-          errors[`linea_${linea.id}_fechaVencimiento`] = 'La fecha debe ser futura';
-        }
-      }
-
       lineasValidas++;
     }
 
@@ -235,8 +193,6 @@ export function RecepcionMultiForm() {
             articuloId: l.articuloId,
             cantidad: parseFloat(l.cantidad),
             costoUnitario: l.costoUnitario ? parseFloat(l.costoUnitario) : null,
-            fechaVencimiento: new Date(l.fechaVencimiento).toISOString(),
-            numeroLoteProveedor: l.numeroLoteProveedor || null,
             ubicacion: l.ubicacion || null,
           })),
       };
@@ -312,15 +268,6 @@ export function RecepcionMultiForm() {
       currency: 'CRC',
     }).format(value);
   };
-
-  if (loadingData) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        <span className="ml-2 text-gray-600">Cargando datos...</span>
-      </div>
-    );
-  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -400,22 +347,12 @@ export function RecepcionMultiForm() {
           />
 
           {/* Proveedor */}
-          <div>
-            <Label htmlFor="proveedorId">Proveedor</Label>
-            <Select
-              id="proveedorId"
-              value={proveedorId}
-              onChange={(e) => setProveedorId(e.target.value)}
-              disabled={loading}
-            >
-              <option value="">Seleccione un proveedor</option>
-              {proveedores.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.codigo} - {p.nombre}
-                </option>
-              ))}
-            </Select>
-          </div>
+          <ProveedorSelector
+            value={proveedorId}
+            onChange={(prov) => setProveedorId(prov?.id || '')}
+            disabled={loading}
+            label="Proveedor"
+          />
 
           {/* Documento Externo */}
           <div>
@@ -499,7 +436,7 @@ export function RecepcionMultiForm() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {/* Artículo */}
                   <div className="lg:col-span-2">
                     <ArticuloSelector
@@ -554,38 +491,6 @@ export function RecepcionMultiForm() {
                     />
                   </div>
 
-                  {/* Fecha Vencimiento */}
-                  <div>
-                    <Label htmlFor={`vencimiento_${linea.id}`} required>
-                      Vencimiento
-                    </Label>
-                    <Input
-                      id={`vencimiento_${linea.id}`}
-                      type="date"
-                      value={linea.fechaVencimiento}
-                      onChange={(e) =>
-                        actualizarLinea(linea.id, 'fechaVencimiento', e.target.value)
-                      }
-                      disabled={loading}
-                      min={new Date().toISOString().split('T')[0]}
-                      error={fieldErrors[`linea_${linea.id}_fechaVencimiento`]}
-                    />
-                  </div>
-
-                  {/* Número de Lote */}
-                  <div>
-                    <Label htmlFor={`lote_${linea.id}`}>Lote Prov.</Label>
-                    <Input
-                      id={`lote_${linea.id}`}
-                      type="text"
-                      placeholder="LOT-001"
-                      value={linea.numeroLoteProveedor}
-                      onChange={(e) =>
-                        actualizarLinea(linea.id, 'numeroLoteProveedor', e.target.value)
-                      }
-                      disabled={loading}
-                    />
-                  </div>
                 </div>
 
                 {/* Subtotal de línea */}

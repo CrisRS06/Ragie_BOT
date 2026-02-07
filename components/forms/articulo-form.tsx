@@ -2,6 +2,7 @@
 
 /**
  * Formulario de Artículo - Reutilizable para crear y editar
+ * Simplificado: solo campos esenciales
  */
 
 import { useState, useEffect } from 'react';
@@ -10,33 +11,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
-import { CodigoSigafSelector } from '@/components/ui/codigo-sigaf-selector';
 
 interface Articulo {
   id: string;
   sku: string;
   nombre: string;
-  descripcion?: string | null;
-  descripcionSIGAF?: string | null;
-  codigoSIGAF?: string | null;
-  // FASE 1: Campos adicionales PANI
   codigoBarras?: string | null;
-  marca?: string | null;
-  ivaPercent?: number;
-  observaciones?: string | null;
   unidadMedida: string;
   stockMinimo?: number | null;
-  stockMaximo?: number | null;
-  requiereVencimiento: boolean;
-  // Proveedor asociado
   proveedorId?: string | null;
-  // FASE 2: Campos adicionales Bodega en Custodia
-  codigoPANI?: string | null;
-  codigoSICOP?: string | null;
-  codigoSICOPL?: string | null;
-  categoria?: string | null;
-  precio?: number | null;
-  costoReferencia?: number | null;
 }
 
 interface Proveedor {
@@ -63,24 +46,6 @@ const UNIDADES_MEDIDA = [
   { value: 'LIBRA', label: 'Libra' },
 ];
 
-const CATEGORIAS = [
-  { value: '', label: 'Seleccione una categoría' },
-  { value: 'ARROZ', label: 'Arroz' },
-  { value: 'GRANOS', label: 'Granos y Legumbres' },
-  { value: 'ENLATADOS', label: 'Enlatados' },
-  { value: 'LACTEOS', label: 'Lácteos' },
-  { value: 'CEREALES', label: 'Cereales' },
-  { value: 'HARINAS', label: 'Harinas' },
-  { value: 'ACEITES', label: 'Aceites y Grasas' },
-  { value: 'CONDIMENTOS', label: 'Condimentos y Especias' },
-  { value: 'BEBIDAS', label: 'Bebidas' },
-  { value: 'CARNES', label: 'Carnes y Embutidos' },
-  { value: 'LIMPIEZA', label: 'Productos de Limpieza' },
-  { value: 'HIGIENE', label: 'Higiene Personal' },
-  { value: 'DESECHABLES', label: 'Desechables' },
-  { value: 'OTROS', label: 'Otros' },
-];
-
 export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -95,27 +60,10 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
   const [formData, setFormData] = useState({
     sku: '',
     nombre: '',
-    descripcion: '',
-    descripcionSIGAF: '',
-    codigoSIGAF: '',
-    // Proveedor asociado
-    proveedorId: '',
-    // FASE 1: Campos adicionales PANI
     codigoBarras: '',
-    marca: '',
-    ivaPercent: '0.13',
-    observaciones: '',
     unidadMedida: 'UNIDAD',
     stockMinimo: '',
-    stockMaximo: '',
-    requiereVencimiento: true,
-    // FASE 2: Campos adicionales Bodega en Custodia
-    codigoPANI: '',
-    codigoSICOP: '',
-    codigoSICOPL: '',
-    categoria: '',
-    precio: '',
-    costoReferencia: '',
+    proveedorId: '',
   });
 
   // Errores de validación por campo
@@ -145,26 +93,10 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
       setFormData({
         sku: articulo.sku || '',
         nombre: articulo.nombre || '',
-        descripcion: articulo.descripcion || '',
-        descripcionSIGAF: articulo.descripcionSIGAF || '',
-        codigoSIGAF: articulo.codigoSIGAF || '',
-        proveedorId: articulo.proveedorId || '',
-        // FASE 1: Campos adicionales PANI
         codigoBarras: articulo.codigoBarras || '',
-        marca: articulo.marca || '',
-        ivaPercent: articulo.ivaPercent?.toString() || '0.13',
-        observaciones: articulo.observaciones || '',
         unidadMedida: articulo.unidadMedida || 'UNIDAD',
         stockMinimo: articulo.stockMinimo?.toString() || '',
-        stockMaximo: articulo.stockMaximo?.toString() || '',
-        requiereVencimiento: articulo.requiereVencimiento ?? true,
-        // FASE 2: Campos adicionales Bodega en Custodia
-        codigoPANI: articulo.codigoPANI || '',
-        codigoSICOP: articulo.codigoSICOP || '',
-        codigoSICOPL: articulo.codigoSICOPL || '',
-        categoria: articulo.categoria || '',
-        precio: articulo.precio?.toString() || '',
-        costoReferencia: articulo.costoReferencia?.toString() || '',
+        proveedorId: articulo.proveedorId || '',
       });
     }
   }, [mode, articulo]);
@@ -172,14 +104,8 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
-    const { name, value, type } = e.target;
-
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData((prev) => ({ ...prev, [name]: checked }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-    }
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
 
     // Limpiar error del campo al escribir
     if (fieldErrors[name]) {
@@ -202,20 +128,9 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
       errors.unidadMedida = 'Seleccione una unidad de medida';
     }
 
-    // Validar stockMinimo y stockMaximo
     const stockMin = formData.stockMinimo ? parseFloat(formData.stockMinimo) : null;
-    const stockMax = formData.stockMaximo ? parseFloat(formData.stockMaximo) : null;
-
     if (stockMin !== null && stockMin < 0) {
       errors.stockMinimo = 'Stock mínimo no puede ser negativo';
-    }
-
-    if (stockMax !== null && stockMax < 0) {
-      errors.stockMaximo = 'Stock máximo no puede ser negativo';
-    }
-
-    if (stockMin !== null && stockMax !== null && stockMax < stockMin) {
-      errors.stockMaximo = 'Stock máximo debe ser mayor o igual al mínimo';
     }
 
     setFieldErrors(errors);
@@ -237,26 +152,10 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
       const payload = {
         sku: formData.sku.trim(),
         nombre: formData.nombre.trim(),
-        descripcion: formData.descripcion?.trim() || null,
-        descripcionSIGAF: formData.descripcionSIGAF?.trim() || null,
-        codigoSIGAF: formData.codigoSIGAF?.trim() || null,
-        proveedorId: formData.proveedorId || null,
-        // FASE 1: Campos adicionales PANI
         codigoBarras: formData.codigoBarras?.trim() || null,
-        marca: formData.marca?.trim() || null,
-        ivaPercent: formData.ivaPercent ? parseFloat(formData.ivaPercent) : 0.13,
-        observaciones: formData.observaciones?.trim() || null,
         unidadMedida: formData.unidadMedida,
         stockMinimo: formData.stockMinimo ? parseFloat(formData.stockMinimo) : null,
-        stockMaximo: formData.stockMaximo ? parseFloat(formData.stockMaximo) : null,
-        requiereVencimiento: formData.requiereVencimiento,
-        // FASE 2: Campos adicionales Bodega en Custodia
-        codigoPANI: formData.codigoPANI?.trim() || null,
-        codigoSICOP: formData.codigoSICOP?.trim() || null,
-        codigoSICOPL: formData.codigoSICOPL?.trim() || null,
-        categoria: formData.categoria?.trim() || null,
-        precio: formData.precio ? parseFloat(formData.precio) : null,
-        costoReferencia: formData.costoReferencia ? parseFloat(formData.costoReferencia) : null,
+        proveedorId: formData.proveedorId || null,
       };
 
       const url = mode === 'create'
@@ -348,7 +247,7 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
               id="sku"
               name="sku"
               type="text"
-              placeholder="Ej: 001, ABC-123, mi-producto"
+              placeholder="Ej: 001, ABC-123"
               value={formData.sku}
               onChange={handleChange}
               disabled={loading || mode === 'edit'}
@@ -375,243 +274,7 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
               error={fieldErrors.nombre}
             />
           </div>
-        </div>
 
-        {/* Descripción opcional */}
-        <div className="mt-4">
-          <Label htmlFor="descripcion">
-            Descripción (Opcional)
-          </Label>
-          <textarea
-            id="descripcion"
-            name="descripcion"
-            rows={2}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-            placeholder="Descripción adicional del artículo..."
-            value={formData.descripcion}
-            onChange={handleChange}
-            disabled={loading}
-          />
-        </div>
-      </div>
-
-      {/* Sección: Proveedor Asociado */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Proveedor Asociado</h3>
-
-        <div className="max-w-md">
-          <Label htmlFor="proveedorId">Proveedor</Label>
-          <Select
-            id="proveedorId"
-            name="proveedorId"
-            value={formData.proveedorId}
-            onChange={handleChange}
-            disabled={loading || loadingProveedores}
-          >
-            <option value="">
-              {loadingProveedores ? 'Cargando proveedores...' : 'Sin proveedor asignado'}
-            </option>
-            {proveedores.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.codigo} - {p.nombre}
-              </option>
-            ))}
-          </Select>
-          <p className="mt-1 text-xs text-gray-500">
-            Opcional: Asocie este artículo a un proveedor específico
-          </p>
-        </div>
-      </div>
-
-      {/* Sección: Información Adicional PANI */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Información Adicional</h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Código de Barras */}
-          <div>
-            <Label htmlFor="codigoBarras">
-              Código de Barras
-            </Label>
-            <Input
-              id="codigoBarras"
-              name="codigoBarras"
-              type="text"
-              placeholder="Ej: 7501234567890"
-              value={formData.codigoBarras}
-              onChange={handleChange}
-              disabled={loading}
-            />
-            <p className="mt-1 text-xs text-gray-500">Para escaneo de productos</p>
-          </div>
-
-          {/* Marca */}
-          <div>
-            <Label htmlFor="marca">
-              Marca
-            </Label>
-            <Input
-              id="marca"
-              name="marca"
-              type="text"
-              placeholder="Ej: Dos Pinos"
-              value={formData.marca}
-              onChange={handleChange}
-              disabled={loading}
-            />
-          </div>
-
-          {/* IVA */}
-          <div>
-            <Label htmlFor="ivaPercent">
-              Porcentaje IVA
-            </Label>
-            <Select
-              id="ivaPercent"
-              name="ivaPercent"
-              value={formData.ivaPercent}
-              onChange={handleChange}
-              disabled={loading}
-            >
-              <option value="0.13">13% (Gravado)</option>
-              <option value="0">0% (Exento)</option>
-            </Select>
-            <p className="mt-1 text-xs text-gray-500">Para valorización de inventario</p>
-          </div>
-        </div>
-
-        {/* Observaciones del artículo */}
-        <div className="mt-4">
-          <Label htmlFor="observaciones">
-            Observaciones
-          </Label>
-          <textarea
-            id="observaciones"
-            name="observaciones"
-            rows={2}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-            placeholder="Notas adicionales sobre el artículo..."
-            value={formData.observaciones}
-            onChange={handleChange}
-            disabled={loading}
-          />
-        </div>
-      </div>
-
-      {/* Sección: Código SIGAF */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Código SIGAF</h3>
-        <p className="text-sm text-gray-500 mb-4">
-          Código del Sistema Integrado de Gestión de la Administración Financiera
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Selector SIGAF con búsqueda */}
-          <CodigoSigafSelector
-            value={formData.codigoSIGAF}
-            onChange={(codigo, descripcion) => {
-              setFormData(prev => ({
-                ...prev,
-                codigoSIGAF: codigo,
-                descripcionSIGAF: descripcion || prev.descripcionSIGAF
-              }));
-            }}
-            disabled={loading}
-          />
-
-          {/* Descripción SIGAF (se puede editar manualmente) */}
-          <div>
-            <Label htmlFor="descripcionSIGAF">
-              Descripción SIGAF
-            </Label>
-            <textarea
-              id="descripcionSIGAF"
-              name="descripcionSIGAF"
-              rows={3}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-              placeholder="Descripción del artículo según catálogo SIGAF"
-              value={formData.descripcionSIGAF}
-              onChange={handleChange}
-              disabled={loading}
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Se puede autocompletar al seleccionar un código SIGAF
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Sección: Información Comercial */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Información Comercial</h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Categoría / Familia */}
-          <div>
-            <Label htmlFor="categoria">
-              Categoría / Familia
-            </Label>
-            <Select
-              id="categoria"
-              name="categoria"
-              value={formData.categoria}
-              onChange={handleChange}
-              disabled={loading}
-            >
-              {CATEGORIAS.map((cat) => (
-                <option key={cat.value} value={cat.value}>
-                  {cat.label}
-                </option>
-              ))}
-            </Select>
-            <p className="mt-1 text-xs text-gray-500">Familia del producto para clasificación</p>
-          </div>
-
-          {/* Precio */}
-          <div>
-            <Label htmlFor="precio">
-              Precio de Venta
-            </Label>
-            <Input
-              id="precio"
-              name="precio"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Ej: 1500.00"
-              value={formData.precio}
-              onChange={handleChange}
-              disabled={loading}
-            />
-            <p className="mt-1 text-xs text-gray-500">Precio de venta en colones</p>
-          </div>
-
-          {/* Costo de Referencia */}
-          <div>
-            <Label htmlFor="costoReferencia">
-              Costo de Referencia
-            </Label>
-            <Input
-              id="costoReferencia"
-              name="costoReferencia"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Ej: 1200.00"
-              value={formData.costoReferencia}
-              onChange={handleChange}
-              disabled={loading}
-            />
-            <p className="mt-1 text-xs text-gray-500">Costo base del artículo en colones</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Sección: Control de Inventario */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Control de Inventario</h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Unidad de Medida */}
           <div>
             <Label htmlFor="unidadMedida" required>
@@ -628,6 +291,50 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
               {UNIDADES_MEDIDA.map((um) => (
                 <option key={um.value} value={um.value}>
                   {um.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          {/* Código de Barras */}
+          <div>
+            <Label htmlFor="codigoBarras">
+              Código de Barras
+            </Label>
+            <Input
+              id="codigoBarras"
+              name="codigoBarras"
+              type="text"
+              placeholder="Ej: 7501234567890"
+              value={formData.codigoBarras}
+              onChange={handleChange}
+              disabled={loading}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Sección: Proveedor y Stock */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Proveedor y Stock</h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Proveedor */}
+          <div>
+            <Label htmlFor="proveedorId">Proveedor Asociado</Label>
+            <Select
+              id="proveedorId"
+              name="proveedorId"
+              value={formData.proveedorId}
+              onChange={handleChange}
+              disabled={loading || loadingProveedores}
+            >
+              <option value="">
+                {loadingProveedores ? 'Cargando proveedores...' : 'Sin proveedor asignado'}
+              </option>
+              {proveedores.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.codigo} - {p.nombre}
                 </option>
               ))}
             </Select>
@@ -652,43 +359,6 @@ export function ArticuloForm({ articulo, mode }: ArticuloFormProps) {
             />
             <p className="mt-1 text-xs text-gray-500">Genera alerta cuando el stock baja de este nivel</p>
           </div>
-
-          {/* Stock Máximo */}
-          <div>
-            <Label htmlFor="stockMaximo">
-              Stock Máximo
-            </Label>
-            <Input
-              id="stockMaximo"
-              name="stockMaximo"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Ej: 100"
-              value={formData.stockMaximo}
-              onChange={handleChange}
-              disabled={loading}
-              error={fieldErrors.stockMaximo}
-            />
-            <p className="mt-1 text-xs text-gray-500">Nivel máximo recomendado de inventario</p>
-          </div>
-        </div>
-
-        {/* Requiere Vencimiento */}
-        <div className="mt-4">
-          <label className="flex items-center space-x-3">
-            <input
-              type="checkbox"
-              name="requiereVencimiento"
-              checked={formData.requiereVencimiento}
-              onChange={handleChange}
-              disabled={loading}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-700">
-              Este artículo requiere control de fecha de vencimiento
-            </span>
-          </label>
         </div>
       </div>
 

@@ -78,8 +78,8 @@ export default function NuevoCortePage() {
       setSuccess({
         corteId: data.corte.id,
         hashSnapshot: data.corte.hashSnapshot,
-        totalArticulos: data.totalArticulos,
-        totalLotes: data.totalLotes,
+        totalArticulos: data.corte.totalArticulos,
+        totalLotes: data.corte.totalLotes,
       });
 
       setFormData({

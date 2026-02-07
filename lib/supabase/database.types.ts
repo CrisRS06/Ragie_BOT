@@ -482,7 +482,7 @@ export type Database = {
           costo_unitario: number | null
           created_at: string | null
           fecha_ingreso: string | null
-          fecha_vencimiento: string
+          fecha_vencimiento: string | null
           id: string
           numero_lote: string | null
           proveedor: string | null
@@ -498,7 +498,7 @@ export type Database = {
           costo_unitario?: number | null
           created_at?: string | null
           fecha_ingreso?: string | null
-          fecha_vencimiento: string
+          fecha_vencimiento?: string | null
           id?: string
           numero_lote?: string | null
           proveedor?: string | null
@@ -786,34 +786,20 @@ export type Database = {
               lote_id: string
             }[]
           }
-      receive_inventory:
-        | {
-            Args: {
-              p_articulo_id: string
-              p_cantidad: number
-              p_costo_unitario: number
-              p_documento?: string
-              p_fecha_vencimiento: string
-              p_numero_lote?: string
-              p_proveedor?: string
-              p_usuario_id: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_articulo_id: string
-              p_bodega_id?: string
-              p_cantidad: number
-              p_costo_unitario: number
-              p_documento?: string
-              p_fecha_vencimiento: string
-              p_numero_lote?: string
-              p_proveedor?: string
-              p_usuario_id: string
-            }
-            Returns: string
-          }
+      receive_inventory: {
+        Args: {
+          p_articulo_id: string
+          p_cantidad: number
+          p_costo_unitario?: number
+          p_usuario_id?: string
+          p_fecha_vencimiento?: string
+          p_proveedor?: string
+          p_numero_lote?: string
+          p_documento?: string
+          p_bodega_id?: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       rol_usuario: "ADMINISTRADOR" | "OPERADOR" | "AUDITOR"

@@ -102,9 +102,9 @@ export async function GET(
 
     // Agregar informacion de dias hasta vencimiento
     const lotesConInfo = (lotes || []).map((lote) => {
-      const diasHastaVencimiento = Math.ceil(
-        (new Date(lote.fecha_vencimiento).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-      )
+      const diasHastaVencimiento = lote.fecha_vencimiento
+        ? Math.ceil((new Date(lote.fecha_vencimiento).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        : null
 
       return {
         id: lote.id,
@@ -115,9 +115,11 @@ export async function GET(
         costoUnitario: lote.costo_unitario,
         ubicacion: lote.ubicacion,
         diasHastaVencimiento,
-        vencido: diasHastaVencimiento < 0,
+        vencido: diasHastaVencimiento !== null && diasHastaVencimiento < 0,
         alertaVencimiento:
-          diasHastaVencimiento < 0
+          diasHastaVencimiento === null
+            ? null
+            : diasHastaVencimiento < 0
             ? 'VENCIDO'
             : diasHastaVencimiento <= 7
             ? 'CRITICO'

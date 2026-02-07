@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -86,30 +87,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const movimientosCreados: string[] = []
 
     for (const detalle of detalles) {
-      // Fecha de vencimiento requerida
-      if (!detalle.fecha_vencimiento) {
-        // Revertir cambios
-        if (lotesCreados.length > 0) {
-          await supabase.from('lotes').delete().in('id', lotesCreados)
-        }
-        if (movimientosCreados.length > 0) {
-          await supabase.from('movimientos').delete().in('id', movimientosCreados)
-        }
-        return NextResponse.json(
-          { success: false, error: `Articulo ${detalle.articulo_id} requiere fecha de vencimiento` },
-          { status: 400 }
-        )
-      }
-
       // Crear lote
-      const { data: lote, error: loteError } = await supabase
+      const { data: lote, error: loteError } = await supabaseAdmin
         .from('lotes')
         .insert({
           articulo_id: detalle.articulo_id,
           cantidad_inicial: detalle.cantidad,
           cantidad_disponible: detalle.cantidad,
           fecha_ingreso: new Date().toISOString().split('T')[0],
-          fecha_vencimiento: detalle.fecha_vencimiento,
+          fecha_vencimiento: detalle.fecha_vencimiento || null,
           numero_lote: detalle.numero_lote_proveedor,
           proveedor: documento.proveedor_id,
           costo_unitario: detalle.costo_unitario,
@@ -124,7 +110,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       if (loteError) {
         // Revertir
         if (lotesCreados.length > 0) {
-          await supabase.from('lotes').delete().in('id', lotesCreados)
+          await supabaseAdmin.from('lotes').delete().in('id', lotesCreados)
         }
         throw loteError
       }
@@ -132,7 +118,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       lotesCreados.push(lote.id)
 
       // Crear movimiento de entrada
-      const { data: movimiento, error: movError } = await supabase
+      const { data: movimiento, error: movError } = await supabaseAdmin
         .from('movimientos')
         .insert({
           tipo: 'ENTRADA',
@@ -150,9 +136,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
       if (movError) {
         // Revertir
-        await supabase.from('lotes').delete().in('id', lotesCreados)
+        await supabaseAdmin.from('lotes').delete().in('id', lotesCreados)
         if (movimientosCreados.length > 0) {
-          await supabase.from('movimientos').delete().in('id', movimientosCreados)
+          await supabaseAdmin.from('movimientos').delete().in('id', movimientosCreados)
         }
         throw movError
       }
@@ -160,14 +146,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       movimientosCreados.push(movimiento.id)
 
       // Actualizar detalle con lote_id
-      await supabase
+      await supabaseAdmin
         .from('detalles_recepcion')
         .update({ lote_id: lote.id })
         .eq('id', detalle.id)
     }
 
     // 3. Actualizar estado del documento a PROCESADO
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('documentos_recepcion')
       .update({ estado: 'PROCESADO', updated_at: new Date().toISOString() })
       .eq('id', id)
@@ -177,7 +163,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // 4. Registrar en audit_log
-    await supabase.from('audit_log').insert({
+    await supabaseAdmin.from('audit_log').insert({
       usuario_id: user.id,
       accion: 'PROCESAR_DOCUMENTO_RECEPCION',
       entidad: 'documentos_recepcion',
@@ -190,12 +176,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({
       success: true,
-      documento: {
+      data: {
         id: documento.id,
         numero: documento.numero,
         estado: 'PROCESADO',
+        lotesCreados: lotesCreados.length,
       },
-      lotesCreados: lotesCreados.length,
       mensaje: `Documento ${documento.numero} procesado exitosamente. Se crearon ${lotesCreados.length} lotes.`,
     })
   } catch (error) {
