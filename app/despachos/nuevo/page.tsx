@@ -1,11 +1,33 @@
+'use client';
+
 /**
  * Página: Nueva Salida/Despacho PEPS Multi-Producto
  * Journey 2: Despacho usando algoritmo PEPS con múltiples productos
  */
 
 import { DespachoMultiForm } from '@/components/forms/despacho-multi-form';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { AccessDenied } from '@/components/ui/access-denied';
+import { RefreshCw } from 'lucide-react';
 
 export default function NuevoDespachoPage() {
+  const { hasAccess, loading, error } = useRoleAccess({
+    requiredPermission: 'despachos.crear',
+    redirectTo: '/despachos',
+  });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return <AccessDenied message={error || undefined} backHref="/despachos" backLabel="Volver a Despachos" />;
+  }
+
   return (
     <div className="container mx-auto py-6 px-4 max-w-5xl">
       {/* Header */}

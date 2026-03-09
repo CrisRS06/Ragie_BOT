@@ -8,9 +8,28 @@
 import Link from 'next/link';
 import { RecepcionMultiForm } from '@/components/forms/recepcion-multi-form';
 import { Card } from '@/components/ui/card';
-import { ArrowLeft, Package } from 'lucide-react';
+import { ArrowLeft, Package, RefreshCw } from 'lucide-react';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { AccessDenied } from '@/components/ui/access-denied';
 
 export default function NuevaRecepcionMultiPage() {
+  const { hasAccess, loading, error } = useRoleAccess({
+    requiredPermission: 'recepciones.crear',
+    redirectTo: '/recepciones',
+  });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return <AccessDenied message={error || undefined} backHref="/recepciones" backLabel="Volver a Recepciones" />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

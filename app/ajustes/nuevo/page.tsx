@@ -7,12 +7,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, AlertCircle, Package, Layers } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Package, Layers, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { AccessDenied } from '@/components/ui/access-denied';
 
 interface Articulo {
   id: string;
@@ -31,6 +33,11 @@ interface Lote {
 }
 
 export default function NuevoAjustePage() {
+  const { hasAccess, loading: accessLoading, error: accessError } = useRoleAccess({
+    requiredPermission: 'ajustes.crear',
+    redirectTo: '/inventario',
+  });
+
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [loadingArticulos, setLoadingArticulos] = useState(true);
@@ -180,6 +187,18 @@ export default function NuevoAjustePage() {
 
   const loteSeleccionado = lotes.find((l) => l.id === formData.loteId);
   const articuloSeleccionado = articulos.find((a) => a.id === formData.articuloId);
+
+  if (accessLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return <AccessDenied message={accessError || undefined} backHref="/inventario" backLabel="Volver a Inventario" />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

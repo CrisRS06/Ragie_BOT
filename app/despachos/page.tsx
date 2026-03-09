@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { AlertDialog } from '@/components/ui/dialog';
+import { useAuth } from '@/contexts/AuthContext';
+import { hasPermission } from '@/hooks/useRoleAccess';
 
 interface Despacho {
   id: string;
@@ -38,6 +40,10 @@ interface Despacho {
 }
 
 export default function DespachosPage() {
+  const { user } = useAuth();
+  const canCreate = user?.rol ? hasPermission(user.rol, 'despachos.crear') : false;
+  const canAnular = user?.rol ? hasPermission(user.rol, 'despachos.anular') : false;
+
   const [despachos, setDespachos] = useState<Despacho[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -172,12 +178,14 @@ export default function DespachosPage() {
               Registro de salidas de mercancía del inventario
             </p>
           </div>
-          <Link href="/despachos/nuevo">
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Despacho
-            </Button>
-          </Link>
+          {canCreate && (
+            <Link href="/despachos/nuevo">
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Nuevo Despacho
+              </Button>
+            </Link>
+          )}
         </div>
 
         {/* Filtros */}
@@ -367,7 +375,7 @@ export default function DespachosPage() {
                             <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 rounded-full">
                               Anulado
                             </span>
-                          ) : (
+                          ) : canAnular ? (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -376,7 +384,7 @@ export default function DespachosPage() {
                             >
                               <XCircle className="w-4 h-4" />
                             </Button>
-                          )}
+                          ) : null}
                         </div>
                       </td>
                     </tr>

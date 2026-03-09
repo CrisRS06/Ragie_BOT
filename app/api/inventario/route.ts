@@ -59,8 +59,8 @@ export async function GET(request: NextRequest) {
     const bodegaId = searchParams.get('bodegaId') || ''
     const ordenarPor = searchParams.get('ordenarPor') || 'nombre'
     const orden = searchParams.get('orden') || 'asc'
-    const limite = parseInt(searchParams.get('limite') || '50')
-    const offset = parseInt(searchParams.get('offset') || '0')
+    const limite = Math.min(Math.max(parseInt(searchParams.get('limite') || '50') || 50, 1), 200)
+    const offset = Math.max(parseInt(searchParams.get('offset') || '0') || 0, 0)
 
     // Obtener bodegas para mapear IDs a nombres/codigos
     const { data: bodegasData } = await supabase
@@ -72,12 +72,20 @@ export async function GET(request: NextRequest) {
       (bodegasData || []).map(b => [b.id, { codigo: b.codigo, nombre: b.nombre }])
     )
 
-    // Obtener articulos activos (sin ordenar aun, lo haremos despues)
+    // Obtener articulos activos
+    // When soloConStock is true, fetch ALL articles (no DB pagination)
+    // because stock filter is applied in memory after joining with lotes
     let query = supabase
       .from('articulos')
       .select('*', { count: 'exact' })
       .eq('activo', true)
-      .range(offset, offset + limite - 1)
+
+    if (soloConStock) {
+      // Fetch all articles (up to hard cap) — pagination applied in memory after stock filter
+      query = query.limit(5000)
+    } else {
+      query = query.range(offset, offset + limite - 1)
+    }
 
     if (busqueda) {
       const safeBusqueda = sanitizePostgrestValue(busqueda)
@@ -211,14 +219,22 @@ export async function GET(request: NextRequest) {
       return orden === 'desc' ? -comparison : comparison
     })
 
+    // When soloConStock, apply in-memory pagination after filtering
+    const totalFiltrado = inventarioFiltrado.length
+    if (soloConStock) {
+      inventarioFiltrado = inventarioFiltrado.slice(offset, offset + limite)
+    }
+
     // Estadisticas generales
     const estadisticas = {
-      totalArticulos: inventarioFiltrado.length,
-      articulosConStock: inventarioFiltrado.filter((a) => a.stockTotal > 0).length,
+      totalArticulos: soloConStock ? totalFiltrado : (count || 0),
+      articulosConStock: soloConStock ? totalFiltrado : inventarioFiltrado.filter((a) => a.stockTotal > 0).length,
       articulosSinStock: inventarioFiltrado.filter((a) => a.stockTotal === 0).length,
       articulosStockBajo: inventarioFiltrado.filter((a) => a.alertaStockBajo).length,
       articulosConAlertaVencimiento: inventarioFiltrado.filter((a) => a.alertaVencimiento).length,
     }
+
+    const paginacionTotal = soloConStock ? totalFiltrado : (count || 0)
 
     return NextResponse.json({
       success: true,
@@ -226,10 +242,10 @@ export async function GET(request: NextRequest) {
       estadisticas,
       bodegaSeleccionada: bodegaId ? bodegasMap.get(bodegaId) : null,
       paginacion: {
-        total: count || 0,
+        total: paginacionTotal,
         limite,
         offset,
-        paginas: Math.ceil((count || 0) / limite),
+        paginas: Math.ceil(paginacionTotal / limite),
       },
     })
   } catch (error) {

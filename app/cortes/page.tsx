@@ -8,6 +8,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import { hasPermission } from '@/hooks/useRoleAccess';
 
 interface Corte {
   id: string;
@@ -22,6 +24,9 @@ interface Corte {
 }
 
 export default function CortesPage() {
+  const { user } = useAuth();
+  const canCreate = user?.rol ? hasPermission(user.rol, 'cortes.crear') : false;
+
   const [cortes, setCortes] = useState<Corte[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,9 +94,11 @@ export default function CortesPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Cortes de Existencias</h1>
           <p className="text-gray-600 dark:text-gray-400">Historial de snapshots de inventario con hash inmutable</p>
         </div>
-        <Link href="/cortes/nuevo">
-          <Button>Nuevo Corte</Button>
-        </Link>
+        {canCreate && (
+          <Link href="/cortes/nuevo">
+            <Button>Nuevo Corte</Button>
+          </Link>
+        )}
       </div>
 
       {/* Filtros */}
@@ -133,9 +140,11 @@ export default function CortesPage() {
           ) : cortes.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500">No hay cortes registrados</p>
-              <Link href="/cortes/nuevo" className="text-blue-600 hover:underline mt-2 inline-block">
-                Crear primer corte
-              </Link>
+              {canCreate && (
+                <Link href="/cortes/nuevo" className="text-blue-600 hover:underline mt-2 inline-block">
+                  Crear primer corte
+                </Link>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">

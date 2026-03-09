@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Página: Nueva Recepción de Mercancía
  * Journey 1 Crítico - Con navegación global mejorada
@@ -5,8 +7,28 @@
 
 import { RecepcionForm } from '@/components/forms/recepcion-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { AccessDenied } from '@/components/ui/access-denied';
+import { RefreshCw } from 'lucide-react';
 
 export default function NuevaRecepcionPage() {
+  const { hasAccess, loading, error } = useRoleAccess({
+    requiredPermission: 'recepciones.crear',
+    redirectTo: '/recepciones',
+  });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return <AccessDenied message={error || undefined} backHref="/recepciones" backLabel="Volver a Recepciones" />;
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header de página */}

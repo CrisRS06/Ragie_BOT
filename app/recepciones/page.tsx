@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { useAuth } from '@/contexts/AuthContext';
+import { hasPermission } from '@/hooks/useRoleAccess';
 
 interface Recepcion {
   id: string;
@@ -37,6 +39,9 @@ interface Recepcion {
 }
 
 export default function RecepcionesPage() {
+  const { user } = useAuth();
+  const canCreate = user?.rol ? hasPermission(user.rol, 'recepciones.crear') : false;
+
   const [recepciones, setRecepciones] = useState<Recepcion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -120,20 +125,22 @@ export default function RecepcionesPage() {
               Registro de entradas de mercancía al inventario
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Link href="/recepciones/nueva-multi">
-              <Button variant="outline" className="w-full sm:w-auto">
-                <Layers className="w-4 h-4 mr-2" />
-                Multi-Producto
-              </Button>
-            </Link>
-            <Link href="/recepciones/nueva">
-              <Button className="w-full sm:w-auto">
-                <Plus className="w-4 h-4 mr-2" />
-                Nueva Recepción
-              </Button>
-            </Link>
-          </div>
+          {canCreate && (
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Link href="/recepciones/nueva-multi">
+                <Button variant="outline" className="w-full sm:w-auto">
+                  <Layers className="w-4 h-4 mr-2" />
+                  Multi-Producto
+                </Button>
+              </Link>
+              <Link href="/recepciones/nueva">
+                <Button className="w-full sm:w-auto">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nueva Recepción
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Filtros */}
