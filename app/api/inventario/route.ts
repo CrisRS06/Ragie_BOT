@@ -41,6 +41,43 @@ interface ArticuloInventario {
   bodegas?: BodegaStock[];
 }
 
+// Helper: fetch lotes in batches to avoid PostgREST URL length limits
+async function fetchLotesInBatches(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  articuloIds: string[],
+  bodegaId: string
+) {
+  if (articuloIds.length === 0) return []
+
+  const BATCH_SIZE = 100
+  const allLotes: Array<{
+    id: string;
+    articulo_id: string;
+    cantidad_disponible: number;
+    fecha_vencimiento: string | null;
+    bodega_id: string | null;
+  }> = []
+
+  for (let i = 0; i < articuloIds.length; i += BATCH_SIZE) {
+    const batch = articuloIds.slice(i, i + BATCH_SIZE)
+    let q = supabase
+      .from('lotes')
+      .select('id, articulo_id, cantidad_disponible, fecha_vencimiento, bodega_id')
+      .in('articulo_id', batch)
+      .eq('activo', true)
+      .gt('cantidad_disponible', 0)
+
+    if (bodegaId) {
+      q = q.eq('bodega_id', bodegaId)
+    }
+
+    const { data } = await q
+    if (data) allLotes.push(...data)
+  }
+
+  return allLotes
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -72,66 +109,112 @@ export async function GET(request: NextRequest) {
       (bodegasData || []).map(b => [b.id, { codigo: b.codigo, nombre: b.nombre }])
     )
 
-    // Obtener articulos activos
-    // When soloConStock is true, fetch ALL articles (no DB pagination)
-    // because stock filter is applied in memory after joining with lotes
-    let query = supabase
-      .from('articulos')
-      .select('*', { count: 'exact' })
-      .eq('activo', true)
+    let articulos: Array<Record<string, unknown>> = []
+    let totalCount = 0
 
     if (soloConStock) {
-      // Fetch all articles (up to hard cap) — pagination applied in memory after stock filter
-      query = query.limit(5000)
+      // Strategy: query lotes first to find which articles have stock,
+      // then fetch only those articles. This avoids fetching all 1000+ articles.
+      let lotesQuery = supabase
+        .from('lotes')
+        .select('articulo_id')
+        .eq('activo', true)
+        .gt('cantidad_disponible', 0)
+
+      if (bodegaId) {
+        lotesQuery = lotesQuery.eq('bodega_id', bodegaId)
+      }
+
+      const { data: lotesWithStock } = await lotesQuery
+
+      // Get unique article IDs that have stock
+      const articleIdsWithStock = [...new Set((lotesWithStock || []).map(l => l.articulo_id))]
+
+      if (articleIdsWithStock.length === 0) {
+        // No articles with stock — return empty
+        return NextResponse.json({
+          success: true,
+          inventario: [],
+          estadisticas: {
+            totalArticulos: 0,
+            articulosConStock: 0,
+            articulosSinStock: 0,
+            articulosStockBajo: 0,
+            articulosConAlertaVencimiento: 0,
+          },
+          bodegaSeleccionada: bodegaId ? bodegasMap.get(bodegaId) : null,
+          paginacion: { total: 0, limite, offset, paginas: 0 },
+        })
+      }
+
+      // Fetch those articles in batches (to avoid URL length limits)
+      const BATCH_SIZE = 100
+      const allArticulos: Array<Record<string, unknown>> = []
+      for (let i = 0; i < articleIdsWithStock.length; i += BATCH_SIZE) {
+        const batch = articleIdsWithStock.slice(i, i + BATCH_SIZE)
+        let q = supabase
+          .from('articulos')
+          .select('*')
+          .eq('activo', true)
+          .in('id', batch)
+
+        if (busqueda) {
+          const safeBusqueda = sanitizePostgrestValue(busqueda)
+          q = q.or(`sku.ilike.%${safeBusqueda}%,nombre.ilike.%${safeBusqueda}%,descripcion_sigaf.ilike.%${safeBusqueda}%`)
+        }
+
+        const { data } = await q
+        if (data) allArticulos.push(...data)
+      }
+
+      articulos = allArticulos
+      totalCount = allArticulos.length
     } else {
-      query = query.range(offset, offset + limite - 1)
-    }
+      // Normal path: paginate articles at DB level
+      let query = supabase
+        .from('articulos')
+        .select('*', { count: 'exact' })
+        .eq('activo', true)
+        .range(offset, offset + limite - 1)
 
-    if (busqueda) {
-      const safeBusqueda = sanitizePostgrestValue(busqueda)
-      query = query.or(`sku.ilike.%${safeBusqueda}%,nombre.ilike.%${safeBusqueda}%,descripcion_sigaf.ilike.%${safeBusqueda}%`)
-    }
+      if (busqueda) {
+        const safeBusqueda = sanitizePostgrestValue(busqueda)
+        query = query.or(`sku.ilike.%${safeBusqueda}%,nombre.ilike.%${safeBusqueda}%,descripcion_sigaf.ilike.%${safeBusqueda}%`)
+      }
 
-    const { data: articulos, error, count } = await query
+      const { data, error, count } = await query
 
-    if (error) {
-      console.error('Error al obtener articulos:', error)
-      return NextResponse.json(
-        { success: false, error: 'Error al obtener inventario' },
-        { status: 500 }
-      )
+      if (error) {
+        console.error('Error al obtener articulos:', error)
+        return NextResponse.json(
+          { success: false, error: 'Error al obtener inventario' },
+          { status: 500 }
+        )
+      }
+
+      articulos = data || []
+      totalCount = count || 0
     }
 
     // Fecha limite para alertas (30 dias)
     const fechaLimiteAlerta = new Date()
     fechaLimiteAlerta.setDate(fechaLimiteAlerta.getDate() + 30)
 
-    // Batch-fetch all lotes for the returned articles (fixes N+1)
-    const articuloIds = (articulos || []).map(a => a.id)
-    let allLotesQuery = supabase
-      .from('lotes')
-      .select('id, articulo_id, cantidad_disponible, fecha_vencimiento, bodega_id')
-      .in('articulo_id', articuloIds)
-      .eq('activo', true)
-      .gt('cantidad_disponible', 0)
-
-    if (bodegaId) {
-      allLotesQuery = allLotesQuery.eq('bodega_id', bodegaId)
-    }
-
-    const { data: allLotes } = await allLotesQuery
+    // Batch-fetch all lotes for the returned articles
+    const articuloIds = articulos.map(a => a.id as string)
+    const allLotes = await fetchLotesInBatches(supabase, articuloIds, bodegaId)
 
     // Group lotes by articulo_id
     const lotesByArticulo = new Map<string, typeof allLotes>()
-    for (const lote of allLotes || []) {
+    for (const lote of allLotes) {
       const list = lotesByArticulo.get(lote.articulo_id) || []
       list.push(lote)
       lotesByArticulo.set(lote.articulo_id, list)
     }
 
-    // Process articles synchronously using grouped lotes
-    const inventario: ArticuloInventario[] = (articulos || []).map((articulo) => {
-      const lotesArray = lotesByArticulo.get(articulo.id) || []
+    // Process articles using grouped lotes
+    const inventario: ArticuloInventario[] = articulos.map((articulo) => {
+      const lotesArray = lotesByArticulo.get(articulo.id as string) || []
       const stockTotal = lotesArray.reduce((sum, lote) => sum + Number(lote.cantidad_disponible), 0)
 
       const lotesProximosAVencer = lotesArray.filter(
@@ -167,23 +250,24 @@ export async function GET(request: NextRequest) {
       }
 
       return {
-        id: articulo.id,
-        sku: articulo.sku,
-        nombre: articulo.nombre,
-        descripcionSIGAF: articulo.descripcion_sigaf,
-        unidadMedida: articulo.unidad_medida,
-        stockMinimo: articulo.stock_minimo,
+        id: articulo.id as string,
+        sku: articulo.sku as string,
+        nombre: articulo.nombre as string,
+        descripcionSIGAF: (articulo.descripcion_sigaf as string | null),
+        unidadMedida: articulo.unidad_medida as string,
+        stockMinimo: articulo.stock_minimo as number | null,
         stockTotal,
         totalLotes: lotesArray.length,
         lotesProximosAVencer,
         lotesVencidos,
-        alertaStockBajo: articulo.stock_minimo !== null && stockTotal <= articulo.stock_minimo,
+        alertaStockBajo: articulo.stock_minimo !== null && stockTotal <= (articulo.stock_minimo as number),
         alertaVencimiento: lotesProximosAVencer > 0 || lotesVencidos > 0,
         bodegas,
       }
     })
 
-    // Filtrar solo con stock si se solicita
+    // Filter out articles without stock (for soloConStock, they should all have stock
+    // but the lotes query might have returned slightly stale data)
     let inventarioFiltrado = soloConStock
       ? inventario.filter((a) => a.stockTotal > 0)
       : inventario
@@ -200,7 +284,6 @@ export async function GET(request: NextRequest) {
           comparison = a.stockTotal - b.stockTotal
           break
         case 'estado':
-          // Ordenar por prioridad: vencidos > stock bajo > proximos a vencer > ok > sin stock
           const getPrioridad = (item: ArticuloInventario) => {
             if (item.lotesVencidos > 0) return 0
             if (item.alertaStockBajo && item.stockTotal > 0) return 1
@@ -219,22 +302,21 @@ export async function GET(request: NextRequest) {
       return orden === 'desc' ? -comparison : comparison
     })
 
-    // When soloConStock, apply in-memory pagination after filtering
-    const totalFiltrado = inventarioFiltrado.length
+    // Apply in-memory pagination for soloConStock path
+    const totalAfterFilter = inventarioFiltrado.length
     if (soloConStock) {
       inventarioFiltrado = inventarioFiltrado.slice(offset, offset + limite)
     }
 
     // Estadisticas generales
+    const effectiveTotal = soloConStock ? totalAfterFilter : totalCount
     const estadisticas = {
-      totalArticulos: soloConStock ? totalFiltrado : (count || 0),
-      articulosConStock: soloConStock ? totalFiltrado : inventarioFiltrado.filter((a) => a.stockTotal > 0).length,
+      totalArticulos: effectiveTotal,
+      articulosConStock: soloConStock ? totalAfterFilter : inventarioFiltrado.filter((a) => a.stockTotal > 0).length,
       articulosSinStock: inventarioFiltrado.filter((a) => a.stockTotal === 0).length,
       articulosStockBajo: inventarioFiltrado.filter((a) => a.alertaStockBajo).length,
       articulosConAlertaVencimiento: inventarioFiltrado.filter((a) => a.alertaVencimiento).length,
     }
-
-    const paginacionTotal = soloConStock ? totalFiltrado : (count || 0)
 
     return NextResponse.json({
       success: true,
@@ -242,10 +324,10 @@ export async function GET(request: NextRequest) {
       estadisticas,
       bodegaSeleccionada: bodegaId ? bodegasMap.get(bodegaId) : null,
       paginacion: {
-        total: paginacionTotal,
+        total: effectiveTotal,
         limite,
         offset,
-        paginas: Math.ceil(paginacionTotal / limite),
+        paginas: Math.ceil(effectiveTotal / limite),
       },
     })
   } catch (error) {
