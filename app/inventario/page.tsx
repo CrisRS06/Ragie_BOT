@@ -3,7 +3,7 @@
 /**
  * Página: Inventario
  * Vista general del inventario con stock por artículo
- * Soporta filtrado por bodega y ordenamiento
+ * Soporta filtrado por bodega, ordenamiento y paginación
  */
 
 import { useState, useEffect, useDeferredValue } from 'react';
@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
-import { FileText } from 'lucide-react';
+import { FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface BodegaStock {
   bodegaId: string;
@@ -45,6 +45,13 @@ interface Estadisticas {
   articulosConAlertaVencimiento: number;
 }
 
+interface Paginacion {
+  total: number;
+  limite: number;
+  offset: number;
+  paginas: number;
+}
+
 interface Bodega {
   id: string;
   codigo: string;
@@ -54,9 +61,12 @@ interface Bodega {
 type OrdenarPorType = 'nombre' | 'sku' | 'stockTotal' | 'estado';
 type OrdenType = 'asc' | 'desc';
 
+const ITEMS_PER_PAGE = 50;
+
 export default function InventarioPage() {
   const [inventario, setInventario] = useState<ArticuloInventario[]>([]);
   const [estadisticas, setEstadisticas] = useState<Estadisticas | null>(null);
+  const [paginacion, setPaginacion] = useState<Paginacion | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState('');
@@ -66,6 +76,7 @@ export default function InventarioPage() {
   const [ordenarPor, setOrdenarPor] = useState<OrdenarPorType>('nombre');
   const [orden, setOrden] = useState<OrdenType>('asc');
   const [bodegaSeleccionada, setBodegaSeleccionada] = useState<{ codigo: string; nombre: string } | null>(null);
+  const [paginaActual, setPaginaActual] = useState(0);
 
   // Debounce de búsqueda para evitar llamadas excesivas a la API
   const deferredBusqueda = useDeferredValue(busqueda);
@@ -75,9 +86,14 @@ export default function InventarioPage() {
     fetchBodegas();
   }, []);
 
+  // Reset page when filters change
+  useEffect(() => {
+    setPaginaActual(0);
+  }, [deferredBusqueda, soloConStock, bodegaId, ordenarPor, orden]);
+
   useEffect(() => {
     fetchInventario();
-  }, [deferredBusqueda, soloConStock, bodegaId, ordenarPor, orden]);
+  }, [deferredBusqueda, soloConStock, bodegaId, ordenarPor, orden, paginaActual]);
 
   const fetchBodegas = async () => {
     try {
@@ -100,6 +116,8 @@ export default function InventarioPage() {
       if (bodegaId) params.set('bodegaId', bodegaId);
       params.set('ordenarPor', ordenarPor);
       params.set('orden', orden);
+      params.set('limite', String(ITEMS_PER_PAGE));
+      params.set('offset', String(paginaActual * ITEMS_PER_PAGE));
 
       const response = await fetch(`/api/inventario?${params.toString()}`);
       const data = await response.json();
@@ -107,6 +125,7 @@ export default function InventarioPage() {
       if (data.success) {
         setInventario(data.inventario);
         setEstadisticas(data.estadisticas);
+        setPaginacion(data.paginacion);
         setBodegaSeleccionada(data.bodegaSeleccionada || null);
       } else {
         setError('Error al cargar inventario');
@@ -132,6 +151,8 @@ export default function InventarioPage() {
     if (ordenarPor !== campo) return null;
     return orden === 'asc' ? ' ↑' : ' ↓';
   };
+
+  const totalPaginas = paginacion ? paginacion.paginas : 0;
 
   return (
     <div className="container mx-auto py-6 px-4">
@@ -287,7 +308,14 @@ export default function InventarioPage() {
       {/* Tabla de inventario */}
       <Card>
         <CardHeader>
-          <CardTitle>Artículos en Inventario</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Artículos en Inventario</CardTitle>
+            {paginacion && paginacion.total > 0 && (
+              <p className="text-sm text-gray-500">
+                {paginaActual * ITEMS_PER_PAGE + 1}-{Math.min((paginaActual + 1) * ITEMS_PER_PAGE, paginacion.total)} de {paginacion.total}
+              </p>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -299,129 +327,192 @@ export default function InventarioPage() {
               <p className="text-gray-500">No se encontraron artículos</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead>
-                  <tr>
-                    <th
-                      className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:text-gray-700 dark:hover:text-gray-200"
-                      onClick={() => handleSort('sku')}
-                    >
-                      SKU{getSortIcon('sku')}
-                    </th>
-                    <th
-                      className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:text-gray-700 dark:hover:text-gray-200"
-                      onClick={() => handleSort('nombre')}
-                    >
-                      Artículo{getSortIcon('nombre')}
-                    </th>
-                    {!bodegaId && (
-                      <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                        Bodegas
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead>
+                    <tr>
+                      <th
+                        className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:text-gray-700 dark:hover:text-gray-200"
+                        onClick={() => handleSort('sku')}
+                      >
+                        SKU{getSortIcon('sku')}
                       </th>
-                    )}
-                    <th
-                      className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:text-gray-700 dark:hover:text-gray-200"
-                      onClick={() => handleSort('stockTotal')}
-                    >
-                      Stock{getSortIcon('stockTotal')}
-                    </th>
-                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Lotes</th>
-                    <th
-                      className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:text-gray-700 dark:hover:text-gray-200"
-                      onClick={() => handleSort('estado')}
-                    >
-                      Estado{getSortIcon('estado')}
-                    </th>
-                    <th className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-                  {inventario.map((articulo) => (
-                    <tr key={articulo.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-sm font-mono text-gray-900 dark:text-white">{articulo.sku}</td>
-                      <td className="px-3 sm:px-4 py-2 sm:py-3">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">{articulo.nombre}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">{articulo.descripcionSIGAF}</p>
-                        </div>
-                      </td>
+                      <th
+                        className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:text-gray-700 dark:hover:text-gray-200"
+                        onClick={() => handleSort('nombre')}
+                      >
+                        Artículo{getSortIcon('nombre')}
+                      </th>
                       {!bodegaId && (
+                        <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          Bodegas
+                        </th>
+                      )}
+                      <th
+                        className="px-3 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:text-gray-700 dark:hover:text-gray-200"
+                        onClick={() => handleSort('stockTotal')}
+                      >
+                        Stock{getSortIcon('stockTotal')}
+                      </th>
+                      <th className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Lotes</th>
+                      <th
+                        className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:text-gray-700 dark:hover:text-gray-200"
+                        onClick={() => handleSort('estado')}
+                      >
+                        Estado{getSortIcon('estado')}
+                      </th>
+                      <th className="px-3 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                    {inventario.map((articulo) => (
+                      <tr key={articulo.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-sm font-mono text-gray-900 dark:text-white">{articulo.sku}</td>
                         <td className="px-3 sm:px-4 py-2 sm:py-3">
-                          <div className="flex flex-wrap gap-1">
-                            {articulo.bodegas && articulo.bodegas.length > 0 ? (
-                              articulo.bodegas.map((bodega) => (
-                                <span
-                                  key={bodega.bodegaId}
-                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                                  title={bodega.bodegaNombre}
-                                >
-                                  {bodega.bodegaCodigo}: {bodega.stockEnBodega}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-xs text-gray-400">-</span>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">{articulo.nombre}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">{articulo.descripcionSIGAF}</p>
+                          </div>
+                        </td>
+                        {!bodegaId && (
+                          <td className="px-3 sm:px-4 py-2 sm:py-3">
+                            <div className="flex flex-wrap gap-1">
+                              {articulo.bodegas && articulo.bodegas.length > 0 ? (
+                                articulo.bodegas.map((bodega) => (
+                                  <span
+                                    key={bodega.bodegaId}
+                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                    title={bodega.bodegaNombre}
+                                  >
+                                    {bodega.bodegaCodigo}: {bodega.stockEnBodega}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-xs text-gray-400">-</span>
+                              )}
+                            </div>
+                          </td>
+                        )}
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-right">
+                          <span
+                            className={`text-sm font-bold ${
+                              articulo.stockTotal === 0
+                                ? 'text-gray-400 dark:text-gray-500'
+                                : articulo.alertaStockBajo
+                                ? 'text-orange-600 dark:text-orange-400'
+                                : 'text-gray-900 dark:text-white'
+                            }`}
+                          >
+                            {articulo.stockTotal}
+                          </span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">{articulo.unidadMedida}</span>
+                        </td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-center text-sm text-gray-900 dark:text-white">{articulo.totalLotes}</td>
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-center">
+                          <div className="flex justify-center gap-1 flex-wrap">
+                            {articulo.lotesVencidos > 0 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                                {articulo.lotesVencidos} vencidos
+                              </span>
+                            )}
+                            {articulo.lotesProximosAVencer > 0 && articulo.lotesVencidos === 0 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                                {articulo.lotesProximosAVencer} por vencer
+                              </span>
+                            )}
+                            {articulo.alertaStockBajo && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                                Stock bajo
+                              </span>
+                            )}
+                            {!articulo.alertaVencimiento && !articulo.alertaStockBajo && articulo.stockTotal > 0 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                OK
+                              </span>
+                            )}
+                            {articulo.stockTotal === 0 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                                Sin stock
+                              </span>
                             )}
                           </div>
                         </td>
-                      )}
-                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-right">
-                        <span
-                          className={`text-sm font-bold ${
-                            articulo.stockTotal === 0
-                              ? 'text-gray-400 dark:text-gray-500'
-                              : articulo.alertaStockBajo
-                              ? 'text-orange-600 dark:text-orange-400'
-                              : 'text-gray-900 dark:text-white'
-                          }`}
+                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-center">
+                          <Link
+                            href={`/inventario/${articulo.id}`}
+                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
+                          >
+                            Ver Lotes
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPaginas > 1 && (
+                <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+                  <p className="text-sm text-gray-500">
+                    Página {paginaActual + 1} de {totalPaginas}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPaginaActual(0)}
+                      disabled={paginaActual === 0}
+                    >
+                      Primera
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPaginaActual(paginaActual - 1)}
+                      disabled={paginaActual === 0}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    {/* Page number buttons */}
+                    {(() => {
+                      const pages: number[] = [];
+                      const start = Math.max(0, paginaActual - 2);
+                      const end = Math.min(totalPaginas - 1, paginaActual + 2);
+                      for (let i = start; i <= end; i++) pages.push(i);
+                      return pages.map((p) => (
+                        <Button
+                          key={p}
+                          variant={p === paginaActual ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setPaginaActual(p)}
+                          className="min-w-[36px]"
                         >
-                          {articulo.stockTotal}
-                        </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">{articulo.unidadMedida}</span>
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-center text-sm text-gray-900 dark:text-white">{articulo.totalLotes}</td>
-                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-center">
-                        <div className="flex justify-center gap-1 flex-wrap">
-                          {articulo.lotesVencidos > 0 && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                              {articulo.lotesVencidos} vencidos
-                            </span>
-                          )}
-                          {articulo.lotesProximosAVencer > 0 && articulo.lotesVencidos === 0 && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                              {articulo.lotesProximosAVencer} por vencer
-                            </span>
-                          )}
-                          {articulo.alertaStockBajo && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
-                              Stock bajo
-                            </span>
-                          )}
-                          {!articulo.alertaVencimiento && !articulo.alertaStockBajo && articulo.stockTotal > 0 && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                              OK
-                            </span>
-                          )}
-                          {articulo.stockTotal === 0 && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
-                              Sin stock
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-center">
-                        <Link
-                          href={`/inventario/${articulo.id}`}
-                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
-                        >
-                          Ver Lotes
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          {p + 1}
+                        </Button>
+                      ));
+                    })()}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPaginaActual(paginaActual + 1)}
+                      disabled={paginaActual >= totalPaginas - 1}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPaginaActual(totalPaginas - 1)}
+                      disabled={paginaActual >= totalPaginas - 1}
+                    >
+                      Última
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
