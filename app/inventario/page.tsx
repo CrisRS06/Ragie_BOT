@@ -240,7 +240,7 @@ export default function InventarioPage() {
                 onChange={(e) => setBusqueda(e.target.value)}
               />
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
                 <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">Ordenar:</label>
                 <Select

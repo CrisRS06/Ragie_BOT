@@ -11,8 +11,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
+import { RefreshCw } from 'lucide-react';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
+import { AccessDenied } from '@/components/ui/access-denied';
 
 export default function NuevoCortePage() {
+  const { hasAccess, loading: accessLoading, error: accessError } = useRoleAccess({
+    requiredPermission: 'cortes.crear',
+    redirectTo: '/cortes',
+  });
+
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +100,18 @@ export default function NuevoCortePage() {
       setLoading(false);
     }
   };
+
+  if (accessLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return <AccessDenied message={accessError || undefined} backHref="/cortes" backLabel="Volver a Cortes" />;
+  }
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-2xl">
@@ -224,7 +244,7 @@ export default function NuevoCortePage() {
             </div>
 
             {/* Botones */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-4 border-t">
               <Link href="/cortes">
                 <Button type="button" variant="outline" disabled={loading}>
                   Cancelar

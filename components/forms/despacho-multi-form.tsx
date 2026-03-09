@@ -550,13 +550,13 @@ export function DespachoMultiForm() {
       </Card>
 
       {/* Resumen */}
-      <Card className="p-6 bg-amber-50 border-amber-200">
-        <div className="flex items-center justify-between">
+      <Card className="p-4 sm:p-6 bg-amber-50 border-amber-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-amber-600" />
+            <Package className="h-5 w-5 text-amber-600 flex-shrink-0" />
             <span className="font-medium text-amber-900">Resumen del Despacho</span>
           </div>
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <div className="text-sm text-gray-600">
               Líneas: {lineas.filter((l) => l.articuloId).length}
             </div>
@@ -568,7 +568,7 @@ export function DespachoMultiForm() {
       </Card>
 
       {/* Botones */}
-      <div className="flex items-center justify-end gap-3 pt-4 border-t">
+      <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-4 border-t">
         <Button
           type="button"
           variant="outline"

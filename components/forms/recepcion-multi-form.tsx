@@ -513,15 +513,15 @@ export function RecepcionMultiForm() {
       </Card>
 
       {/* Totales */}
-      <Card className="p-6 bg-blue-50 border-blue-200">
-        <div className="flex items-center justify-between">
+      <Card className="p-4 sm:p-6 bg-blue-50 border-blue-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-blue-600" />
+            <Package className="h-5 w-5 text-blue-600 flex-shrink-0" />
             <span className="font-medium text-blue-900">
               Resumen del Documento
             </span>
           </div>
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <div className="text-sm text-gray-600">
               Subtotal sin IVA: {formatCurrency(totales.subtotalSinIva)}
             </div>
@@ -536,7 +536,7 @@ export function RecepcionMultiForm() {
       </Card>
 
       {/* Botones */}
-      <div className="flex items-center justify-end gap-3 pt-4 border-t">
+      <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-4 border-t">
         <Button
           type="button"
           variant="outline"
