@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/supabase/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { z } from 'zod'
 
@@ -103,15 +104,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
+    const auth = await requirePermission('articulos.editar')
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
     const body = await request.json()
 
@@ -186,15 +181,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
+    const auth = await requirePermission('articulos.eliminar')
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
     // Verificar que el articulo existe
     const { data: articulo, error: fetchError } = await supabase

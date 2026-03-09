@@ -6,7 +6,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/supabase/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getUserNameMap } from '@/lib/utils/user-cache'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -72,22 +74,13 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Error al listar recepciones:', error)
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: 'Error al listar recepciones' },
         { status: 500 }
       )
     }
 
-    // Fetch user profiles for usuario_id
-    const usuarioIds = [...new Set((movimientos || []).map(m => m.usuario_id).filter((id): id is string => id !== null))]
-    const usuariosMap = new Map<string, string>()
-    if (usuarioIds.length > 0) {
-      const { data: { users } } = await supabaseAdmin.auth.admin.listUsers()
-      for (const u of users || []) {
-        if (usuarioIds.includes(u.id)) {
-          usuariosMap.set(u.id, u.user_metadata?.nombre || u.email || 'Desconocido')
-        }
-      }
-    }
+    // Fetch user names from cache
+    const usuariosMap = await getUserNameMap()
 
     // Transform response to camelCase for frontend
     const recepcionesTransformed = (movimientos || []).map((mov) => {
@@ -136,15 +129,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
+    const auth = await requirePermission('recepciones.crear')
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
     const body = await request.json()
 
@@ -194,7 +181,7 @@ export async function POST(request: NextRequest) {
     if (recError) {
       console.error('Error en receive_inventory:', recError)
       return NextResponse.json(
-        { success: false, error: recError.message },
+        { success: false, error: 'Error al procesar recepcion' },
         { status: 500 }
       )
     }
@@ -227,7 +214,6 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: 'Error al crear recepcion',
-        message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
     )

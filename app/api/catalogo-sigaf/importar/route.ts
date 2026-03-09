@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/supabase/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
@@ -29,15 +30,9 @@ interface SigafRow {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
+    const auth = await requirePermission('catalogo.gestionar')
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
     const body = await request.json()
     const { datos } = body as { datos: SigafRow[] }
@@ -125,7 +120,7 @@ export async function POST(request: NextRequest) {
           .eq('id', existente.id)
 
         if (error) {
-          erroresDB.push({ codigo: registro.codigo, error: error.message })
+          erroresDB.push({ codigo: registro.codigo, error: 'Error al guardar registro' })
         } else {
           actualizados++
         }
@@ -149,7 +144,7 @@ export async function POST(request: NextRequest) {
           })
 
         if (error) {
-          erroresDB.push({ codigo: registro.codigo, error: error.message })
+          erroresDB.push({ codigo: registro.codigo, error: 'Error al guardar registro' })
         } else {
           insertados++
         }

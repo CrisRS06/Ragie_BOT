@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/supabase/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { z } from 'zod'
 
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Error al obtener bodegas:', error)
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: 'Error interno del servidor' },
         { status: 500 }
       )
     }
@@ -77,15 +78,9 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
+    const auth = await requirePermission('bodegas.gestionar')
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
     const body = await request.json()
 
@@ -135,7 +130,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error al crear bodega:', error)
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: 'Error interno del servidor' },
         { status: 500 }
       )
     }

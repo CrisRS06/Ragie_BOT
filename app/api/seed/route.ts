@@ -19,7 +19,7 @@ const ADMIN_PASSWORD = 'Admin2024Secure'
 
 // Verificar secret de administracion
 function checkSecret(request: NextRequest): boolean {
-  if (!ADMIN_SECRET) return true // Si no hay secret configurado, permitir (dev)
+  if (!ADMIN_SECRET) return false // No secret configured = deny all
   return request.headers.get('x-admin-secret') === ADMIN_SECRET
 }
 
@@ -41,8 +41,8 @@ export async function GET(request: NextRequest) {
     const usuarios = users.map((user) => ({
       id: user.id,
       email: user.email,
-      nombre: user.user_metadata?.nombre || user.email?.split('@')[0],
-      rol: user.user_metadata?.rol || 'OPERADOR',
+      nombre: user.app_metadata?.nombre || user.user_metadata?.nombre || user.email?.split('@')[0],
+      rol: user.app_metadata?.rol || user.user_metadata?.rol || 'OPERADOR',
       activo: !user.banned_until,
       ultimoAcceso: user.last_sign_in_at,
       creadoEn: user.created_at,
@@ -70,6 +70,31 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Check for action=migrate-roles query param
+    const action = request.nextUrl.searchParams.get('action')
+    if (action === 'migrate-roles') {
+      if (!checkSecret(request)) {
+        return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 })
+      }
+      const { data: { users } } = await supabaseAdmin.auth.admin.listUsers()
+      let migrated = 0
+      for (const u of users) {
+        const rol = u.user_metadata?.rol
+        const nombre = u.user_metadata?.nombre
+        if (rol || nombre) {
+          const appMeta: Record<string, string> = {}
+          if (rol) appMeta.rol = rol
+          if (nombre) appMeta.nombre = nombre
+          await supabaseAdmin.auth.admin.updateUserById(u.id, { app_metadata: appMeta })
+          migrated++
+        }
+      }
+      return NextResponse.json({
+        success: true,
+        message: `Migrated ${migrated} users from user_metadata to app_metadata`,
+      })
+    }
+
     let body: { email?: string; nombre?: string; password?: string; rol?: string } = {}
 
     try {
@@ -100,14 +125,16 @@ export async function POST(request: NextRequest) {
         : 'OPERADOR'
 
       // Crear usuario en Supabase Auth
+      const metaPayload = {
+        nombre: nombre || email.split('@')[0],
+        rol: rolFinal,
+      }
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
         email: email.toLowerCase(),
         password,
         email_confirm: true,
-        user_metadata: {
-          nombre: nombre || email.split('@')[0],
-          rol: rolFinal,
-        },
+        user_metadata: metaPayload,
+        app_metadata: metaPayload,
       })
 
       if (error) {
@@ -117,14 +144,16 @@ export async function POST(request: NextRequest) {
           const existingUser = users.find((u) => u.email === email.toLowerCase())
 
           if (existingUser) {
+            const updateMeta = {
+              nombre: nombre || email.split('@')[0],
+              rol: rolFinal,
+            }
             const { data: updated, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
               existingUser.id,
               {
                 password,
-                user_metadata: {
-                  nombre: nombre || email.split('@')[0],
-                  rol: rolFinal,
-                },
+                user_metadata: updateMeta,
+                app_metadata: updateMeta,
               }
             )
 
@@ -159,15 +188,19 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Default path also requires secret
+    if (!checkSecret(request)) {
+      return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 })
+    }
+
     // Sin parametros: crear admin por defecto
+    const adminMeta = { nombre: 'Administrador Sistema', rol: 'ADMINISTRADOR' }
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email: ADMIN_EMAIL,
       password: ADMIN_PASSWORD,
       email_confirm: true,
-      user_metadata: {
-        nombre: 'Administrador Sistema',
-        rol: 'ADMINISTRADOR',
-      },
+      user_metadata: adminMeta,
+      app_metadata: adminMeta,
     })
 
     if (error) {
@@ -215,7 +248,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error en seed:', error)
     return NextResponse.json(
-      { success: false, error: 'Error al crear usuario', details: error instanceof Error ? error.message : 'Unknown' },
+      { success: false, error: 'Error al crear usuario' },
       { status: 500 }
     )
   }

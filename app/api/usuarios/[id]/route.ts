@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/supabase/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { z } from 'zod'
 
@@ -15,7 +16,7 @@ export const dynamic = 'force-dynamic'
 // Schema de validacion para actualizar
 const updateUsuarioSchema = z.object({
   nombre: z.string().min(3).max(100).optional(),
-  rol: z.enum(['ADMINISTRADOR_CONTRATISTA', 'OPERADOR_BODEGA', 'FISCALIZADOR_EXTERNO', 'AUDITOR']).optional(),
+  rol: z.enum(['ADMINISTRADOR', 'OPERADOR', 'AUDITOR']).optional(),
 })
 
 interface RouteParams {
@@ -83,15 +84,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
+    const auth = await requirePermission('usuarios.gestionar')
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
     const body = await request.json()
 
@@ -141,6 +136,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       throw error
     }
 
+    // Sync role/name to auth metadata
+    const authUpdate: Record<string, unknown> = {}
+    if (data.nombre) authUpdate.nombre = data.nombre
+    if (data.rol) authUpdate.rol = data.rol
+    if (Object.keys(authUpdate).length > 0) {
+      await supabaseAdmin.auth.admin.updateUserById(id, {
+        user_metadata: authUpdate,
+        app_metadata: authUpdate,
+      })
+    }
+
     // Registrar en audit_log
     await supabaseAdmin.from('audit_log').insert({
       usuario_id: user.id,
@@ -171,15 +177,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
+    const auth = await requirePermission('usuarios.gestionar')
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
     // Verificar que el usuario existe
     const { data: perfil, error: fetchError } = await supabaseAdmin

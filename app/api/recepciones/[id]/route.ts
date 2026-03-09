@@ -60,7 +60,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         )
       `)
       .eq('tipo', 'ENTRADA')
-      .or(`id.eq.${id},lote_id.eq.${id}`)
+      .or(`id.eq.${id.replace(/[^a-f0-9-]/gi, '')},lote_id.eq.${id.replace(/[^a-f0-9-]/gi, '')}`)
       .single()
 
     if (error || !movimiento) {

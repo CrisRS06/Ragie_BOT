@@ -7,22 +7,16 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/supabase/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
+    const auth = await requirePermission('bitacora.verificar')
+    if (auth instanceof NextResponse) return auth
+    const { user } = auth
 
     const body = await request.json().catch(() => ({}))
 
@@ -78,7 +72,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error al verificar bitacora:', error)
     return NextResponse.json(
-      { error: 'Error al verificar integridad' },
+      { success: false, error: 'Error al verificar integridad' },
       { status: 500 }
     )
   }

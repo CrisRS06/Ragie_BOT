@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/supabase/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
@@ -33,15 +33,9 @@ interface DetalleRecepcion {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
+    const auth = await requirePermission('recepciones.crear')
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
     // 1. Obtener documento
     const { data: documento, error: docError } = await supabase
@@ -190,7 +184,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       {
         success: false,
         error: 'Error al procesar documento',
-        message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
     )

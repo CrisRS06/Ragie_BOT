@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/supabase/auth'
 import ExcelJS from 'exceljs'
 
 export const dynamic = 'force-dynamic'
@@ -36,15 +37,9 @@ interface ArticuloImport {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
+    const auth = await requirePermission('articulos.crear')
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
     // Obtener archivo del form data
     const formData = await request.formData()
@@ -222,7 +217,6 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: 'Error al procesar importacion',
-        message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
     )

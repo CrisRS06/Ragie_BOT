@@ -33,7 +33,13 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // Protected routes - redirect to login if not authenticated
-  const protectedPaths = ['/admin', '/dashboard', '/api/articulos', '/api/despachos', '/api/recepciones', '/api/inventario', '/api/usuarios']
+  const protectedPaths = [
+    '/admin', '/dashboard',
+    '/api/articulos', '/api/despachos', '/api/recepciones', '/api/inventario', '/api/usuarios',
+    '/api/configuracion', '/api/catalogo-sigaf', '/api/proveedores', '/api/bitacora',
+    '/api/exportar', '/api/documentos-recepcion', '/api/ajustes', '/api/cortes',
+    '/api/bodegas', '/api/unidades-receptoras',
+  ]
   const isProtectedPath = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))
 
   // Exclude certain API paths that should be public
@@ -50,6 +56,24 @@ export async function middleware(request: NextRequest) {
     }
     // For pages, redirect to login
     return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  // Role-based page restrictions (APIs are protected in route handlers)
+  const ROLE_RESTRICTED_ROUTES = [
+    { path: '/admin', roles: ['ADMINISTRADOR'] },
+    { path: '/recepciones/nueva', roles: ['ADMINISTRADOR', 'OPERADOR'] },
+    { path: '/despachos/nuevo', roles: ['ADMINISTRADOR', 'OPERADOR'] },
+    { path: '/ajustes/nuevo', roles: ['ADMINISTRADOR', 'OPERADOR'] },
+    { path: '/cortes/nuevo', roles: ['ADMINISTRADOR', 'OPERADOR'] },
+  ]
+
+  const pathname = request.nextUrl.pathname
+  if (user && !pathname.startsWith('/api/')) {
+    const userRole = user.app_metadata?.rol || user.user_metadata?.rol
+    const matched = ROLE_RESTRICTED_ROUTES.find(r => pathname.startsWith(r.path))
+    if (matched && !matched.roles.includes(userRole)) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
   }
 
   // If user is logged in and trying to access login page, redirect to dashboard

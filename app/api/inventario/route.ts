@@ -14,6 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { sanitizePostgrestValue } from '@/lib/utils/sanitize'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,7 +80,8 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limite - 1)
 
     if (busqueda) {
-      query = query.or(`sku.ilike.%${busqueda}%,nombre.ilike.%${busqueda}%,descripcion_sigaf.ilike.%${busqueda}%`)
+      const safeBusqueda = sanitizePostgrestValue(busqueda)
+      query = query.or(`sku.ilike.%${safeBusqueda}%,nombre.ilike.%${safeBusqueda}%,descripcion_sigaf.ilike.%${safeBusqueda}%`)
     }
 
     const { data: articulos, error, count } = await query
@@ -87,7 +89,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Error al obtener articulos:', error)
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: 'Error al obtener inventario' },
         { status: 500 }
       )
     }
@@ -96,78 +98,82 @@ export async function GET(request: NextRequest) {
     const fechaLimiteAlerta = new Date()
     fechaLimiteAlerta.setDate(fechaLimiteAlerta.getDate() + 30)
 
-    // Procesar articulos con info de lotes
-    const inventario: ArticuloInventario[] = await Promise.all(
-      (articulos || []).map(async (articulo) => {
-        // Construir query de lotes con filtro opcional de bodega
-        let lotesQuery = supabase
-          .from('lotes')
-          .select('id, cantidad_disponible, fecha_vencimiento, bodega_id')
-          .eq('articulo_id', articulo.id)
-          .eq('activo', true)
-          .gt('cantidad_disponible', 0)
+    // Batch-fetch all lotes for the returned articles (fixes N+1)
+    const articuloIds = (articulos || []).map(a => a.id)
+    let allLotesQuery = supabase
+      .from('lotes')
+      .select('id, articulo_id, cantidad_disponible, fecha_vencimiento, bodega_id')
+      .in('articulo_id', articuloIds)
+      .eq('activo', true)
+      .gt('cantidad_disponible', 0)
 
-        if (bodegaId) {
-          lotesQuery = lotesQuery.eq('bodega_id', bodegaId)
-        }
+    if (bodegaId) {
+      allLotesQuery = allLotesQuery.eq('bodega_id', bodegaId)
+    }
 
-        const { data: lotes } = await lotesQuery
+    const { data: allLotes } = await allLotesQuery
 
-        const lotesArray = lotes || []
-        const stockTotal = lotesArray.reduce((sum, lote) => sum + Number(lote.cantidad_disponible), 0)
+    // Group lotes by articulo_id
+    const lotesByArticulo = new Map<string, typeof allLotes>()
+    for (const lote of allLotes || []) {
+      const list = lotesByArticulo.get(lote.articulo_id) || []
+      list.push(lote)
+      lotesByArticulo.set(lote.articulo_id, list)
+    }
 
-        // Contar lotes proximos a vencer
-        const lotesProximosAVencer = lotesArray.filter(
-          (lote) => lote.fecha_vencimiento && new Date(lote.fecha_vencimiento) <= fechaLimiteAlerta && new Date(lote.fecha_vencimiento) >= new Date()
-        ).length
+    // Process articles synchronously using grouped lotes
+    const inventario: ArticuloInventario[] = (articulos || []).map((articulo) => {
+      const lotesArray = lotesByArticulo.get(articulo.id) || []
+      const stockTotal = lotesArray.reduce((sum, lote) => sum + Number(lote.cantidad_disponible), 0)
 
-        // Contar lotes vencidos
-        const lotesVencidos = lotesArray.filter(
-          (lote) => lote.fecha_vencimiento && new Date(lote.fecha_vencimiento) < new Date()
-        ).length
+      const lotesProximosAVencer = lotesArray.filter(
+        (lote) => lote.fecha_vencimiento && new Date(lote.fecha_vencimiento) <= fechaLimiteAlerta && new Date(lote.fecha_vencimiento) >= new Date()
+      ).length
 
-        // Calcular stock por bodega (solo si no hay filtro de bodega)
-        let bodegas: BodegaStock[] | undefined = undefined
-        if (!bodegaId) {
-          const stockPorBodega = new Map<string, number>()
-          lotesArray.forEach(lote => {
-            if (lote.bodega_id) {
-              const actual = stockPorBodega.get(lote.bodega_id) || 0
-              stockPorBodega.set(lote.bodega_id, actual + Number(lote.cantidad_disponible))
+      const lotesVencidos = lotesArray.filter(
+        (lote) => lote.fecha_vencimiento && new Date(lote.fecha_vencimiento) < new Date()
+      ).length
+
+      let bodegas: BodegaStock[] | undefined = undefined
+      if (!bodegaId) {
+        const stockPorBodega = new Map<string, number>()
+        lotesArray.forEach(lote => {
+          if (lote.bodega_id) {
+            const actual = stockPorBodega.get(lote.bodega_id) || 0
+            stockPorBodega.set(lote.bodega_id, actual + Number(lote.cantidad_disponible))
+          }
+        })
+
+        bodegas = Array.from(stockPorBodega.entries())
+          .map(([id, stock]) => {
+            const bodegaInfo = bodegasMap.get(id)
+            return {
+              bodegaId: id,
+              bodegaCodigo: bodegaInfo?.codigo || 'N/A',
+              bodegaNombre: bodegaInfo?.nombre || 'Desconocida',
+              stockEnBodega: stock,
             }
           })
+          .filter(b => b.stockEnBodega > 0)
+          .sort((a, b) => a.bodegaCodigo.localeCompare(b.bodegaCodigo))
+      }
 
-          bodegas = Array.from(stockPorBodega.entries())
-            .map(([id, stock]) => {
-              const bodegaInfo = bodegasMap.get(id)
-              return {
-                bodegaId: id,
-                bodegaCodigo: bodegaInfo?.codigo || 'N/A',
-                bodegaNombre: bodegaInfo?.nombre || 'Desconocida',
-                stockEnBodega: stock,
-              }
-            })
-            .filter(b => b.stockEnBodega > 0)
-            .sort((a, b) => a.bodegaCodigo.localeCompare(b.bodegaCodigo))
-        }
-
-        return {
-          id: articulo.id,
-          sku: articulo.sku,
-          nombre: articulo.nombre,
-          descripcionSIGAF: articulo.descripcion_sigaf,
-          unidadMedida: articulo.unidad_medida,
-          stockMinimo: articulo.stock_minimo,
-          stockTotal,
-          totalLotes: lotesArray.length,
-          lotesProximosAVencer,
-          lotesVencidos,
-          alertaStockBajo: articulo.stock_minimo !== null && stockTotal <= articulo.stock_minimo,
-          alertaVencimiento: lotesProximosAVencer > 0 || lotesVencidos > 0,
-          bodegas,
-        }
-      })
-    )
+      return {
+        id: articulo.id,
+        sku: articulo.sku,
+        nombre: articulo.nombre,
+        descripcionSIGAF: articulo.descripcion_sigaf,
+        unidadMedida: articulo.unidad_medida,
+        stockMinimo: articulo.stock_minimo,
+        stockTotal,
+        totalLotes: lotesArray.length,
+        lotesProximosAVencer,
+        lotesVencidos,
+        alertaStockBajo: articulo.stock_minimo !== null && stockTotal <= articulo.stock_minimo,
+        alertaVencimiento: lotesProximosAVencer > 0 || lotesVencidos > 0,
+        bodegas,
+      }
+    })
 
     // Filtrar solo con stock si se solicita
     let inventarioFiltrado = soloConStock
@@ -229,7 +235,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error al obtener inventario:', error)
     return NextResponse.json(
-      { error: 'Error interno del servidor' },
+      { success: false, error: 'Error al obtener inventario' },
       { status: 500 }
     )
   }

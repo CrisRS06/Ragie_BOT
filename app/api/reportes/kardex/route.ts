@@ -262,7 +262,6 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         error: 'Error al generar Kardex',
-        message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
     )

@@ -43,7 +43,6 @@ export async function GET() {
       {
         success: false,
         error: 'Error al generar plantilla',
-        message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
     )

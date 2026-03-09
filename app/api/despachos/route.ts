@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/supabase/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { z } from 'zod'
 
@@ -21,15 +22,9 @@ const createDespachoSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
+    const auth = await requirePermission('despachos.crear')
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
     const body = await request.json()
 
@@ -76,7 +71,7 @@ export async function POST(request: NextRequest) {
     if (pepsError) {
       console.error('Error en dispatch_peps:', pepsError)
       return NextResponse.json(
-        { error: pepsError.message },
+        { success: false, error: 'Error al procesar despacho PEPS' },
         { status: 400 }
       )
     }
@@ -166,7 +161,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Error al listar despachos:', error)
       return NextResponse.json(
-        { error: error.message },
+        { success: false, error: 'Error al listar despachos' },
         { status: 500 }
       )
     }

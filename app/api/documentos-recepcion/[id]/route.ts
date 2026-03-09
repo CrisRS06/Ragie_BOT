@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/supabase/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
@@ -63,7 +64,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       {
         success: false,
         error: 'Error al obtener documento',
-        message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
     )
@@ -76,15 +76,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
+    const auth = await requirePermission('recepciones.crear')
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
     // Verificar que existe y esta en BORRADOR
     const { data: documento, error: fetchError } = await supabase
@@ -149,7 +143,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       {
         success: false,
         error: 'Error al eliminar documento',
-        message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
     )

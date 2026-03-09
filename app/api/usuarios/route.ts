@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/supabase/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { z } from 'zod'
 import type { RolUsuario } from '@/lib/supabase/auth'
@@ -47,8 +48,8 @@ export async function GET(request: NextRequest) {
     let usuarios = users.map((u) => ({
       id: u.id,
       email: u.email,
-      nombre: u.user_metadata?.nombre || u.email?.split('@')[0],
-      rol: u.user_metadata?.rol || 'OPERADOR',
+      nombre: u.app_metadata?.nombre || u.user_metadata?.nombre || u.email?.split('@')[0],
+      rol: u.app_metadata?.rol || u.user_metadata?.rol || 'OPERADOR',
       activo: !u.banned_until,
       ultimoAcceso: u.last_sign_in_at,
       creadoEn: u.created_at,
@@ -77,15 +78,9 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user: currentUser } } = await supabase.auth.getUser()
-
-    if (!currentUser) {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
+    const auth = await requirePermission('usuarios.gestionar')
+    if (auth instanceof NextResponse) return auth
+    const { user: currentUser, supabase } = auth
 
     const body = await request.json()
 
@@ -105,14 +100,13 @@ export async function POST(request: NextRequest) {
     const data = validacion.data
 
     // Crear usuario en Supabase Auth
+    const meta = { nombre: data.nombre, rol: data.rol as RolUsuario }
     const { data: newUser, error } = await supabaseAdmin.auth.admin.createUser({
       email: data.email.toLowerCase(),
       password: data.password,
       email_confirm: true,
-      user_metadata: {
-        nombre: data.nombre,
-        rol: data.rol as RolUsuario,
-      },
+      user_metadata: meta,
+      app_metadata: meta,
     })
 
     if (error) {

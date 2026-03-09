@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/supabase/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,15 +22,8 @@ interface RouteParams {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
+    const auth = await requirePermission('recepciones.anular')
+    if (auth instanceof NextResponse) return auth
 
     // Esta funcionalidad requiere el servicio documento-recepcion.service
     // que usa funciones complejas de transacciones Prisma.
@@ -49,7 +42,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       {
         success: false,
         error: 'Error al anular documento',
-        message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
     )

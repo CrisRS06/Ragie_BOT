@@ -25,17 +25,23 @@ interface Usuario {
 }
 
 const rolLabels: Record<string, string> = {
+  ADMINISTRADOR: 'Administrador',
+  OPERADOR: 'Operador Bodega',
+  AUDITOR: 'Auditor',
+  // Legacy fallbacks
   ADMINISTRADOR_CONTRATISTA: 'Administrador',
   OPERADOR_BODEGA: 'Operador Bodega',
   FISCALIZADOR_EXTERNO: 'Fiscalizador Externo',
-  AUDITOR: 'Auditor',
 };
 
 const rolColors: Record<string, string> = {
+  ADMINISTRADOR: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  OPERADOR: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  AUDITOR: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+  // Legacy fallbacks
   ADMINISTRADOR_CONTRATISTA: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
   OPERADOR_BODEGA: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
   FISCALIZADOR_EXTERNO: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  AUDITOR: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
 };
 
 export default function AdminUsuariosPage() {

@@ -4,21 +4,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/supabase/auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
+    const auth = await requirePermission('bitacora.ver')
+    if (auth instanceof NextResponse) return auth
+    const { supabase } = auth
 
     const searchParams = request.nextUrl.searchParams
     const desde = searchParams.get('desde')
@@ -53,25 +47,27 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Error al listar bitacora:', error)
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: 'Error al listar bitacora' },
         { status: 500 }
       )
     }
 
-    // Obtener lista de acciones unicas para filtros
+    // Obtener lista de acciones unicas para filtros (limited)
     const { data: accionesData } = await supabase
       .from('audit_log')
       .select('accion')
+      .limit(5000)
 
     const acciones = [...new Set(accionesData?.map((a) => a.accion) || [])]
       .map((accion) => ({ accion, count: accionesData?.filter((a) => a.accion === accion).length || 0 }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 20)
 
-    // Obtener lista de entidades unicas para filtros
+    // Obtener lista de entidades unicas para filtros (limited)
     const { data: entidadesData } = await supabase
       .from('audit_log')
       .select('entidad')
+      .limit(5000)
 
     const entidades = [...new Set(entidadesData?.map((e) => e.entidad) || [])]
       .map((entidad) => ({ entidad, count: entidadesData?.filter((e) => e.entidad === entidad).length || 0 }))
@@ -105,7 +101,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error al listar bitacora:', error)
     return NextResponse.json(
-      { error: 'Error interno del servidor' },
+      { success: false, error: 'Error al listar bitacora' },
       { status: 500 }
     )
   }

@@ -4,12 +4,15 @@
 
 import { createClient } from './server'
 import { supabaseAdmin } from './admin'
+import { NextResponse } from 'next/server'
 import type { User } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { PERMISOS_POR_ROL, hasPermission as _hasPermission } from '@/lib/permissions'
+import type { RolUsuario } from '@/lib/permissions'
 
-/**
- * Roles disponibles en el sistema
- */
-export type RolUsuario = 'ADMINISTRADOR' | 'OPERADOR' | 'AUDITOR'
+// Re-export for consumers
+export type { RolUsuario }
+export { PERMISOS_POR_ROL }
 
 /**
  * Interfaz de usuario autenticado
@@ -46,14 +49,15 @@ export async function getCurrentUserId(): Promise<string | null> {
 }
 
 /**
- * Mapea un usuario de Supabase a UsuarioAuth
+ * Mapea un usuario de Supabase a UsuarioAuth.
+ * Reads from app_metadata first, falls back to user_metadata.
  */
 export function mapUserToAuth(user: User): UsuarioAuth {
   return {
     id: user.id,
     email: user.email || '',
-    nombre: user.user_metadata?.nombre || user.email?.split('@')[0] || 'Usuario',
-    rol: (user.user_metadata?.rol as RolUsuario) || 'OPERADOR',
+    nombre: user.app_metadata?.nombre || user.user_metadata?.nombre || user.email?.split('@')[0] || 'Usuario',
+    rol: (user.app_metadata?.rol as RolUsuario) || (user.user_metadata?.rol as RolUsuario) || 'OPERADOR',
   }
 }
 
@@ -66,14 +70,13 @@ export async function createUser(
   nombre: string,
   rol: RolUsuario = 'OPERADOR'
 ) {
+  const meta = { nombre, rol }
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    user_metadata: {
-      nombre,
-      rol,
-    },
+    user_metadata: meta,
+    app_metadata: meta,
   })
 
   if (error) {
@@ -100,45 +103,11 @@ export function hasAnyRole(user: UsuarioAuth | null, roles: RolUsuario[]): boole
 }
 
 /**
- * Permisos por rol
- */
-export const PERMISOS_POR_ROL: Record<RolUsuario, string[]> = {
-  ADMINISTRADOR: [
-    'articulos.crear',
-    'articulos.editar',
-    'articulos.eliminar',
-    'recepciones.crear',
-    'despachos.crear',
-    'despachos.excepcion_peps',
-    'informes.generar',
-    'bitacora.ver',
-    'bitacora.verificar',
-    'usuarios.gestionar',
-  ],
-  OPERADOR: [
-    'articulos.ver',
-    'recepciones.crear',
-    'despachos.crear',
-    'inventario.ver',
-  ],
-  AUDITOR: [
-    'articulos.ver',
-    'inventario.ver',
-    'informes.ver',
-    'informes.descargar',
-    'bitacora.ver',
-    'bitacora.verificar',
-    'bitacora.exportar',
-  ],
-}
-
-/**
  * Verifica si el usuario tiene un permiso especifico
  */
 export function hasPermission(user: UsuarioAuth | null, permission: string): boolean {
   if (!user) return false
-  const permisos = PERMISOS_POR_ROL[user.rol] || []
-  return permisos.includes(permission)
+  return _hasPermission(user.rol, permission)
 }
 
 /**
@@ -158,4 +127,33 @@ export function getUserDisplayInfo(user: UsuarioAuth | null): { nombre: string; 
     email: user.email,
     rolDisplay: rolDisplayMap[user.rol],
   }
+}
+
+/**
+ * Verifica autenticacion + autorizacion en una sola llamada para API routes.
+ * Retorna el usuario y cliente supabase si tiene permiso, o NextResponse 401/403.
+ */
+export async function requirePermission(
+  permiso: string
+): Promise<{ user: UsuarioAuth; supabase: SupabaseClient } | NextResponse> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: 'No autorizado' },
+      { status: 401 }
+    )
+  }
+
+  const usuarioAuth = mapUserToAuth(user)
+
+  if (!hasPermission(usuarioAuth, permiso)) {
+    return NextResponse.json(
+      { success: false, error: 'No tiene permisos para esta accion' },
+      { status: 403 }
+    )
+  }
+
+  return { user: usuarioAuth, supabase }
 }

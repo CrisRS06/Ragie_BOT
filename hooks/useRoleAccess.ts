@@ -9,8 +9,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-
-type RolUsuario = 'ADMINISTRADOR' | 'OPERADOR' | 'AUDITOR';
+import { PERMISOS_POR_ROL } from '@/lib/permissions';
+import type { RolUsuario } from '@/lib/permissions';
 
 interface User {
   id: string;
@@ -32,38 +32,6 @@ interface UseRoleAccessReturn {
   hasAccess: boolean;
   error: string | null;
 }
-
-// Matriz de permisos por rol
-const PERMISOS_POR_ROL: Record<RolUsuario, string[]> = {
-  ADMINISTRADOR: [
-    'articulos.crear',
-    'articulos.editar',
-    'articulos.eliminar',
-    'recepciones.crear',
-    'despachos.crear',
-    'despachos.excepcion_peps',
-    'informes.generar',
-    'bitacora.ver',
-    'bitacora.verificar',
-    'usuarios.gestionar',
-    'admin.acceso',
-  ],
-  OPERADOR: [
-    'articulos.ver',
-    'recepciones.crear',
-    'despachos.crear',
-    'inventario.ver',
-  ],
-  AUDITOR: [
-    'articulos.ver',
-    'inventario.ver',
-    'informes.ver',
-    'informes.descargar',
-    'bitacora.ver',
-    'bitacora.verificar',
-    'bitacora.exportar',
-  ],
-};
 
 export function useRoleAccess(options: UseRoleAccessOptions = {}): UseRoleAccessReturn {
   const { requiredRoles, requiredPermission, redirectTo } = options;
@@ -144,10 +112,6 @@ export function useAdminAccess() {
   });
 }
 
-/**
- * Verifica si un rol tiene un permiso específico
- */
-export function hasPermission(rol: RolUsuario, permission: string): boolean {
-  const permisos = PERMISOS_POR_ROL[rol] || [];
-  return permisos.includes(permission);
-}
+// Re-export for convenience
+export { hasPermission } from '@/lib/permissions';
+export type { RolUsuario } from '@/lib/permissions';

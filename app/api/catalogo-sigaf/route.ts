@@ -6,7 +6,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/supabase/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { sanitizePostgrestValue } from '@/lib/utils/sanitize'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -56,7 +58,8 @@ export async function GET(request: NextRequest) {
 
     // Búsqueda por código o descripción
     if (q.length >= 2) {
-      query = query.or(`codigo.ilike.%${q}%,descripcion.ilike.%${q}%`)
+      const safeQ = sanitizePostgrestValue(q)
+      query = query.or(`codigo.ilike.%${safeQ}%,descripcion.ilike.%${safeQ}%`)
     }
 
     const { data: items, error, count } = await query
@@ -64,7 +67,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Error al buscar en catálogo SIGAF:', error)
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: 'Error interno del servidor' },
         { status: 500 }
       )
     }
@@ -90,15 +93,9 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
+    const auth = await requirePermission('catalogo.gestionar')
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
     const body = await request.json()
 
@@ -154,7 +151,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error al crear código SIGAF:', error)
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: 'Error interno del servidor' },
         { status: 500 }
       )
     }

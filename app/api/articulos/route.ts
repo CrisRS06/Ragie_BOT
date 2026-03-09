@@ -6,7 +6,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/supabase/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { sanitizePostgrestValue } from '@/lib/utils/sanitize'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -63,8 +65,9 @@ export async function GET(request: NextRequest) {
 
     // Aplicar búsqueda si hay término (mínimo 2 caracteres)
     if (q.length >= 2) {
+      const safeQ = sanitizePostgrestValue(q)
       query = query.or(
-        `sku.ilike.%${q}%,nombre.ilike.%${q}%,codigo_sigaf.ilike.%${q}%,marca.ilike.%${q}%,descripcion.ilike.%${q}%`
+        `sku.ilike.%${safeQ}%,nombre.ilike.%${safeQ}%,codigo_sigaf.ilike.%${safeQ}%,marca.ilike.%${safeQ}%,descripcion.ilike.%${safeQ}%`
       )
     }
 
@@ -81,7 +84,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Error al obtener articulos:', error)
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: 'Error interno del servidor' },
         { status: 500 }
       )
     }
@@ -156,7 +159,6 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         error: 'Error al obtener articulos',
-        message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
     )
@@ -168,15 +170,9 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
+    const auth = await requirePermission('articulos.crear')
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
     const body = await request.json()
 
@@ -232,7 +228,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error al crear articulo:', error)
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: 'Error interno del servidor' },
         { status: 500 }
       )
     }

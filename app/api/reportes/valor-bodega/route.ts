@@ -136,7 +136,6 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         error: 'Error al generar reporte de valor de bodega',
-        message: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
     )
