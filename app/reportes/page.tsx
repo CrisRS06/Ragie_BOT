@@ -9,8 +9,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function ReportesPage() {
+  const { user } = useAuth();
+  const esAuditor = user?.rol === 'AUDITOR';
   const [generando, setGenerando] = useState<string | null>(null);
   const [resultado, setResultado] = useState<{
     tipo: string;
@@ -66,8 +69,8 @@ export default function ReportesPage() {
 
       {/* Reportes disponibles */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Informe Mensual */}
-        <Card>
+        {/* Informe Mensual - oculto para auditores */}
+        {!esAuditor && <Card>
           <CardHeader>
             <CardTitle className="text-lg">Informe Mensual de Inventario</CardTitle>
             <CardDescription>
@@ -89,7 +92,7 @@ export default function ReportesPage() {
               </Button>
             </div>
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* Kardex por Producto - FASE 6 */}
         <Card>
@@ -113,8 +116,8 @@ export default function ReportesPage() {
           </CardContent>
         </Card>
 
-        {/* Valor de Bodega - FASE 5 */}
-        <Card>
+        {/* Valor de Bodega - oculto para auditores */}
+        {!esAuditor && <Card>
           <CardHeader>
             <CardTitle className="text-lg">Valor de Bodega (INS)</CardTitle>
             <CardDescription>
@@ -133,7 +136,7 @@ export default function ReportesPage() {
               </Link>
             </div>
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* Acceso Rápido a Cortes */}
         <Card>
