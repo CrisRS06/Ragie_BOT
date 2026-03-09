@@ -9,6 +9,8 @@ import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import { hasPermission } from '@/hooks/useRoleAccess';
 
 interface Articulo {
   id: string;
@@ -56,6 +58,9 @@ interface Estadisticas {
 
 export default function DetalleInventarioPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
+  const { user } = useAuth();
+  const canDespachar = user?.rol ? hasPermission(user.rol, 'despachos.crear') : false;
+
   const [articulo, setArticulo] = useState<Articulo | null>(null);
   const [lotes, setLotes] = useState<Lote[]>([]);
   const [estadisticas, setEstadisticas] = useState<Estadisticas | null>(null);
@@ -237,9 +242,11 @@ export default function DetalleInventarioPage({ params }: { params: Promise<{ id
               Incluir lotes agotados
             </label>
             <div className="flex-1" />
-            <Link href={`/despachos/nuevo?articuloId=${articulo.id}`}>
-              <Button size="sm">Despachar</Button>
-            </Link>
+            {canDespachar && (
+              <Link href={`/despachos/nuevo?articuloId=${articulo.id}`}>
+                <Button size="sm">Despachar</Button>
+              </Link>
+            )}
           </div>
         </CardContent>
       </Card>

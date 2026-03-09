@@ -13,6 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { hasPermission } from '@/hooks/useRoleAccess';
 
 interface BodegaStock {
   bodegaId: string;
@@ -64,6 +66,10 @@ type OrdenType = 'asc' | 'desc';
 const ITEMS_PER_PAGE = 50;
 
 export default function InventarioPage() {
+  const { user } = useAuth();
+  const canCreateRecepcion = user?.rol ? hasPermission(user.rol, 'recepciones.crear') : false;
+  const canCreateDespacho = user?.rol ? hasPermission(user.rol, 'despachos.crear') : false;
+
   const [inventario, setInventario] = useState<ArticuloInventario[]>([]);
   const [estadisticas, setEstadisticas] = useState<Estadisticas | null>(null);
   const [paginacion, setPaginacion] = useState<Paginacion | null>(null);
@@ -177,12 +183,16 @@ export default function InventarioPage() {
             <FileText className="w-4 h-4 mr-2" />
             Exportar PDF
           </Button>
-          <Link href="/recepciones/nueva">
-            <Button variant="outline">Nueva Recepción</Button>
-          </Link>
-          <Link href="/despachos/nuevo">
-            <Button>Nuevo Despacho</Button>
-          </Link>
+          {canCreateRecepcion && (
+            <Link href="/recepciones/nueva">
+              <Button variant="outline">Nueva Recepción</Button>
+            </Link>
+          )}
+          {canCreateDespacho && (
+            <Link href="/despachos/nuevo">
+              <Button>Nuevo Despacho</Button>
+            </Link>
+          )}
         </div>
       </div>
 

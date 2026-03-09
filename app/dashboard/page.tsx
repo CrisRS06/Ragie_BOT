@@ -8,6 +8,8 @@
 import { useState, useEffect } from 'react';
 import { Package, TrendingUp, ClipboardList, FileText, Users, TrendingDown } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import { hasPermission } from '@/hooks/useRoleAccess';
 
 interface Metricas {
   totalArticulos: number;
@@ -36,6 +38,11 @@ interface Metricas {
 }
 
 export default function DashboardPage() {
+  const { user } = useAuth();
+  const canCreateRecepcion = user?.rol ? hasPermission(user.rol, 'recepciones.crear') : false;
+  const canCreateDespacho = user?.rol ? hasPermission(user.rol, 'despachos.crear') : false;
+  const canCreateCorte = user?.rol ? hasPermission(user.rol, 'cortes.crear') : false;
+
   const [metricas, setMetricas] = useState<Metricas | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -164,27 +171,33 @@ export default function DashboardPage() {
       <div className="mb-8">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Accesos Rápidos</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <QuickAccessCard
-            title="Nueva Recepción"
-            description="Registrar entrada de mercancía"
-            icon={<Package className="h-8 w-8" />}
-            href="/recepciones/nueva"
-            color="blue"
-          />
-          <QuickAccessCard
-            title="Despacho PEPS"
-            description="Realizar salida de inventario"
-            icon={<TrendingDown className="h-8 w-8" />}
-            href="/despachos/nuevo"
-            color="green"
-          />
-          <QuickAccessCard
-            title="Generar Corte"
-            description="Corte de existencias bajo demanda"
-            icon={<ClipboardList className="h-8 w-8" />}
-            href="/cortes/nuevo"
-            color="purple"
-          />
+          {canCreateRecepcion && (
+            <QuickAccessCard
+              title="Nueva Recepción"
+              description="Registrar entrada de mercancía"
+              icon={<Package className="h-8 w-8" />}
+              href="/recepciones/nueva"
+              color="blue"
+            />
+          )}
+          {canCreateDespacho && (
+            <QuickAccessCard
+              title="Despacho PEPS"
+              description="Realizar salida de inventario"
+              icon={<TrendingDown className="h-8 w-8" />}
+              href="/despachos/nuevo"
+              color="green"
+            />
+          )}
+          {canCreateCorte && (
+            <QuickAccessCard
+              title="Generar Corte"
+              description="Corte de existencias bajo demanda"
+              icon={<ClipboardList className="h-8 w-8" />}
+              href="/cortes/nuevo"
+              color="purple"
+            />
+          )}
           <QuickAccessCard
             title="Informes"
             description="Ver y generar reportes"
