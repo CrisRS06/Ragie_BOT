@@ -63,3 +63,6 @@ Thumbs.db
 
 # Playwright
 .playwright/
+
+# supabase temp files
+supabase/.temp/
