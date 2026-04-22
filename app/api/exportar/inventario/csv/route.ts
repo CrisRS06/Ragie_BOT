@@ -1,19 +1,21 @@
 /**
- * API: GET /api/exportar/inventario
- * Genera un PDF del inventario actual
+ * API: GET /api/exportar/inventario/csv
+ * Exporta el inventario actual a CSV (UTF-8 con BOM para compatibilidad con Excel).
  *
  * Query params:
  * - bodegaId: string - Filtrar por bodega
- * - soloConStock: boolean - Solo artículos con stock > 0
+ * - soloConStock: boolean - Solo artículos con stock > 0 (default true)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import Papa from 'papaparse'
 import { createClient } from '@/lib/supabase/server'
 import { hasPermission, mapUserToAuth } from '@/lib/supabase/auth'
-import { generarReporteInventario, type ReporteInventarioData } from '@/lib/pdf/inventario-pdf'
 import { obtenerInventarioActual, InventarioReportError } from '@/lib/reports/inventario-actual'
 
 export const dynamic = 'force-dynamic'
+
+const BOM = '﻿'
 
 export async function GET(request: NextRequest) {
   try {
@@ -44,35 +46,41 @@ export async function GET(request: NextRequest) {
       soloConStock,
     })
 
-    const userName = user.user_metadata?.nombre || user.email || 'Sistema'
+    const filas = lineas.map((linea) => ({
+      'SKU': linea.sku,
+      'Nombre': linea.nombre,
+      'Unidad': linea.unidadMedida,
+      'Stock Total': linea.stockTotal,
+      'Stock Mínimo': linea.stockMinimo ?? '',
+      'Estado': linea.estado,
+    }))
 
-    const reporteData: ReporteInventarioData = {
-      fecha: new Date().toISOString(),
-      generadoPor: userName,
-      bodega,
-      articulos: lineas,
-    }
+    const csv = Papa.unparse(filas, {
+      header: true,
+      quotes: true,
+      newline: '\r\n',
+    })
 
-    const pdfBuffer = await generarReporteInventario(reporteData)
+    const fecha = new Date().toISOString().split('T')[0]
+    const codigoSeguro = bodega ? bodega.codigo.replace(/[^\w\-]/g, '_').slice(0, 32) : ''
+    const sufijoBodega = codigoSeguro ? `-${codigoSeguro}` : ''
+    const filename = `inventario${sufijoBodega}-${fecha}.csv`
 
-    if (!pdfBuffer || pdfBuffer.length === 0) {
-      throw new InventarioReportError('PDF generado vacío', 'QUERY_FAILED')
-    }
-
-    return new NextResponse(new Uint8Array(pdfBuffer), {
+    return new NextResponse(BOM + csv, {
+      status: 200,
       headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="inventario-${new Date().toISOString().split('T')[0]}.pdf"`,
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
       },
     })
   } catch (error) {
-    console.error('Error al exportar inventario:', error)
+    console.error('Error al exportar inventario CSV:', error)
     if (error instanceof InventarioReportError) {
       const status = error.code === 'BODEGA_NOT_FOUND' ? 404 : 500
       return NextResponse.json({ success: false, error: error.message }, { status })
     }
     return NextResponse.json(
-      { success: false, error: 'Error al exportar inventario' },
+      { success: false, error: 'Error al generar CSV' },
       { status: 500 }
     )
   }

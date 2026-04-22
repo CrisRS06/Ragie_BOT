@@ -12,9 +12,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
-import { FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileText, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasPermission } from '@/hooks/useRoleAccess';
+import { descargarArchivo } from '@/lib/utils/descarga';
+import { toast } from '@/lib/hooks/use-toast';
 
 interface BodegaStock {
   bodegaId: string;
@@ -83,6 +85,28 @@ export default function InventarioPage() {
   const [orden, setOrden] = useState<OrdenType>('asc');
   const [bodegaSeleccionada, setBodegaSeleccionada] = useState<{ codigo: string; nombre: string } | null>(null);
   const [paginaActual, setPaginaActual] = useState(0);
+  const [descargando, setDescargando] = useState<'pdf' | 'csv' | null>(null);
+
+  const exportar = async (formato: 'pdf' | 'csv') => {
+    if (descargando) return;
+    setDescargando(formato);
+    try {
+      const params = new URLSearchParams();
+      params.set('soloConStock', String(soloConStock));
+      if (bodegaId) params.set('bodegaId', bodegaId);
+      const base = '/api/exportar/inventario';
+      const url = formato === 'csv' ? `${base}/csv?${params}` : `${base}?${params}`;
+      const fecha = new Date().toISOString().split('T')[0];
+      const fallback = `inventario-${fecha}.${formato}`;
+      const expectedContentType = formato === 'csv' ? 'text/csv' : 'application/pdf';
+      await descargarArchivo(url, fallback, { expectedContentType });
+    } catch (err) {
+      const mensaje = err instanceof Error && err.message ? err.message : 'Error desconocido';
+      toast.error(`No se pudo descargar el ${formato.toUpperCase()}`, mensaje);
+    } finally {
+      setDescargando(null);
+    }
+  };
 
   // Debounce de búsqueda para evitar llamadas excesivas a la API
   const deferredBusqueda = useDeferredValue(busqueda);
@@ -173,12 +197,18 @@ export default function InventarioPage() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => {
-              const params = new URLSearchParams();
-              params.set('soloConStock', String(soloConStock));
-              if (bodegaId) params.set('bodegaId', bodegaId);
-              window.open(`/api/exportar/inventario?${params.toString()}`, '_blank');
-            }}
+            isLoading={descargando === 'csv'}
+            disabled={descargando !== null}
+            onClick={() => exportar('csv')}
+          >
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Exportar CSV
+          </Button>
+          <Button
+            variant="outline"
+            isLoading={descargando === 'pdf'}
+            disabled={descargando !== null}
+            onClick={() => exportar('pdf')}
           >
             <FileText className="w-4 h-4 mr-2" />
             Exportar PDF

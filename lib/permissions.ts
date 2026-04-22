@@ -10,6 +10,7 @@ export const PERMISOS_POR_ROL: Record<RolUsuario, string[]> = {
     'articulos.crear',
     'articulos.editar',
     'articulos.eliminar',
+    'inventario.ver',
     'recepciones.crear',
     'recepciones.anular',
     'despachos.crear',

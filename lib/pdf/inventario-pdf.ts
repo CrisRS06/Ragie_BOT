@@ -4,15 +4,9 @@
  */
 
 import PDFDocument from 'pdfkit';
+import type { LineaInventario } from '@/lib/reports/inventario-actual';
 
-export interface LineaInventario {
-  sku: string;
-  nombre: string;
-  unidadMedida: string;
-  stockTotal: number;
-  stockMinimo: number | null;
-  estado: 'OK' | 'Stock bajo' | 'Sin stock' | 'Alerta venc.';
-}
+export type { LineaInventario };
 
 export interface ReporteInventarioData {
   fecha: string;
