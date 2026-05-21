@@ -49,7 +49,8 @@ export async function GET(request: NextRequest) {
       id: u.id,
       email: u.email,
       nombre: u.app_metadata?.nombre || u.user_metadata?.nombre || u.email?.split('@')[0],
-      rol: u.app_metadata?.rol || u.user_metadata?.rol || 'OPERADOR',
+      // El rol se lee solo de app_metadata (user_metadata es editable por el usuario).
+      rol: u.app_metadata?.rol || 'AUDITOR',
       activo: !u.banned_until,
       ultimoAcceso: u.last_sign_in_at,
       creadoEn: u.created_at,

@@ -7,10 +7,30 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.1"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -220,6 +240,27 @@ export type Database = {
           tipo?: string
           updated_at?: string | null
           valor?: string
+        }
+        Relationships: []
+      }
+      contador_consecutivos: {
+        Row: {
+          anio: number
+          tipo: string
+          ultimo_numero: number
+          updated_at: string | null
+        }
+        Insert: {
+          anio: number
+          tipo: string
+          ultimo_numero?: number
+          updated_at?: string | null
+        }
+        Update: {
+          anio?: number
+          tipo?: string
+          ultimo_numero?: number
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -514,7 +555,7 @@ export type Database = {
           costo_unitario?: number | null
           created_at?: string | null
           fecha_ingreso?: string | null
-          fecha_vencimiento?: string
+          fecha_vencimiento?: string | null
           id?: string
           numero_lote?: string | null
           proveedor?: string | null
@@ -625,6 +666,135 @@ export type Database = {
             columns: ["unidad_receptora_id"]
             isOneToOne: false
             referencedRelation: "unidades_receptoras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ordenes_pedido: {
+        Row: {
+          aceptado_por_id: string | null
+          bodega_id: string | null
+          created_at: string | null
+          entregado_por_id: string | null
+          estado: Database["public"]["Enums"]["estado_orden_pedido"]
+          fecha_aceptacion: string | null
+          fecha_entrega: string | null
+          fecha_envio: string | null
+          fecha_listo: string | null
+          hash_firma: string | null
+          id: string
+          motivo_anulacion: string | null
+          motivo_rechazo: string | null
+          numero: string | null
+          observaciones: string | null
+          receptor_cedula: string | null
+          receptor_nombre: string | null
+          solicitante_id: string
+          unidad_receptora_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          aceptado_por_id?: string | null
+          bodega_id?: string | null
+          created_at?: string | null
+          entregado_por_id?: string | null
+          estado?: Database["public"]["Enums"]["estado_orden_pedido"]
+          fecha_aceptacion?: string | null
+          fecha_entrega?: string | null
+          fecha_envio?: string | null
+          fecha_listo?: string | null
+          hash_firma?: string | null
+          id?: string
+          motivo_anulacion?: string | null
+          motivo_rechazo?: string | null
+          numero?: string | null
+          observaciones?: string | null
+          receptor_cedula?: string | null
+          receptor_nombre?: string | null
+          solicitante_id: string
+          unidad_receptora_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          aceptado_por_id?: string | null
+          bodega_id?: string | null
+          created_at?: string | null
+          entregado_por_id?: string | null
+          estado?: Database["public"]["Enums"]["estado_orden_pedido"]
+          fecha_aceptacion?: string | null
+          fecha_entrega?: string | null
+          fecha_envio?: string | null
+          fecha_listo?: string | null
+          hash_firma?: string | null
+          id?: string
+          motivo_anulacion?: string | null
+          motivo_rechazo?: string | null
+          numero?: string | null
+          observaciones?: string | null
+          receptor_cedula?: string | null
+          receptor_nombre?: string | null
+          solicitante_id?: string
+          unidad_receptora_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ordenes_pedido_bodega_id_fkey"
+            columns: ["bodega_id"]
+            isOneToOne: false
+            referencedRelation: "bodegas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordenes_pedido_unidad_receptora_id_fkey"
+            columns: ["unidad_receptora_id"]
+            isOneToOne: false
+            referencedRelation: "unidades_receptoras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ordenes_pedido_lineas: {
+        Row: {
+          articulo_id: string
+          cantidad_entregada: number | null
+          cantidad_solicitada: number
+          created_at: string | null
+          id: string
+          notas: string | null
+          orden_id: string
+        }
+        Insert: {
+          articulo_id: string
+          cantidad_entregada?: number | null
+          cantidad_solicitada: number
+          created_at?: string | null
+          id?: string
+          notas?: string | null
+          orden_id: string
+        }
+        Update: {
+          articulo_id?: string
+          cantidad_entregada?: number | null
+          cantidad_solicitada?: number
+          created_at?: string | null
+          id?: string
+          notas?: string | null
+          orden_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ordenes_pedido_lineas_articulo_id_fkey"
+            columns: ["articulo_id"]
+            isOneToOne: false
+            referencedRelation: "articulos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordenes_pedido_lineas_orden_id_fkey"
+            columns: ["orden_id"]
+            isOneToOne: false
+            referencedRelation: "ordenes_pedido"
             referencedColumns: ["id"]
           },
         ]
@@ -786,22 +956,82 @@ export type Database = {
               lote_id: string
             }[]
           }
-      receive_inventory: {
+      editar_orden_pedido: {
         Args: {
-          p_articulo_id: string
-          p_cantidad: number
-          p_costo_unitario?: number
-          p_usuario_id?: string
-          p_fecha_vencimiento?: string
-          p_proveedor?: string
-          p_numero_lote?: string
-          p_documento?: string
-          p_bodega_id?: string
+          p_bodega_id: string
+          p_lineas: Json
+          p_observaciones: string
+          p_orden_id: string
+          p_unidad_receptora_id: string
         }
-        Returns: string
+        Returns: Json
+      }
+      entregar_orden_pedido: {
+        Args: {
+          p_cedula: string
+          p_lineas?: Json
+          p_orden_id: string
+          p_receptor: string
+          p_usuario_id: string
+        }
+        Returns: Json
+      }
+      receive_inventory:
+        | {
+            Args: {
+              p_articulo_id: string
+              p_bodega_id?: string
+              p_cantidad: number
+              p_costo_unitario?: number
+              p_documento?: string
+              p_fecha_vencimiento?: string
+              p_numero_lote?: string
+              p_proveedor?: string
+              p_usuario_id?: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_articulo_id: string
+              p_cantidad: number
+              p_costo_unitario: number
+              p_documento?: string
+              p_fecha_vencimiento: string
+              p_numero_lote?: string
+              p_proveedor?: string
+              p_usuario_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_articulo_id: string
+              p_bodega_id?: string
+              p_cantidad: number
+              p_costo_unitario: number
+              p_documento?: string
+              p_fecha_vencimiento: string
+              p_numero_lote?: string
+              p_proveedor?: string
+              p_usuario_id: string
+            }
+            Returns: string
+          }
+      siguiente_consecutivo: {
+        Args: { p_anio: number; p_tipo: string }
+        Returns: number
       }
     }
     Enums: {
+      estado_orden_pedido:
+        | "BORRADOR"
+        | "ENVIADO"
+        | "EN_PREPARACION"
+        | "LISTO_RETIRO"
+        | "ENTREGADO"
+        | "RECHAZADO"
+        | "ANULADO"
       rol_usuario: "ADMINISTRADOR" | "OPERADOR" | "AUDITOR"
       tipo_movimiento: "ENTRADA" | "SALIDA" | "AJUSTE"
     }
@@ -929,10 +1159,23 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
+      estado_orden_pedido: [
+        "BORRADOR",
+        "ENVIADO",
+        "EN_PREPARACION",
+        "LISTO_RETIRO",
+        "ENTREGADO",
+        "RECHAZADO",
+        "ANULADO",
+      ],
       rol_usuario: ["ADMINISTRADOR", "OPERADOR", "AUDITOR"],
       tipo_movimiento: ["ENTRADA", "SALIDA", "AJUSTE"],
     },
   },
 } as const
+

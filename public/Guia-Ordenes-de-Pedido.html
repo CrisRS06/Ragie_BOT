@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Órdenes de Pedido — Guía rápida</title>
+<style>
+  :root {
+    --azul: #2563eb;
+    --azul-suave: #eff4ff;
+    --ambar: #b45309;
+    --ambar-suave: #fff7ed;
+    --tinta: #1a1d23;
+    --gris: #5b616e;
+    --gris-claro: #8a909c;
+    --linea: #e6e8ec;
+    --fondo: #f4f5f7;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: var(--fondo);
+    color: var(--tinta);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    padding: 40px 20px;
+  }
+  .doc { max-width: 820px; margin: 0 auto; }
+
+  /* Encabezado */
+  .hero {
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 38px 40px;
+    margin-bottom: 28px;
+  }
+  .hero .kicker {
+    font-size: 12px; font-weight: 600; letter-spacing: 1.5px;
+    text-transform: uppercase; opacity: .8; margin-bottom: 10px;
+  }
+  .hero h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.5px; }
+  .hero p { font-size: 16px; opacity: .9; margin-top: 8px; }
+
+  /* Tarjetas */
+  .card {
+    background: #fff;
+    border: 1px solid var(--linea);
+    border-radius: 14px;
+    padding: 28px 32px;
+    margin-bottom: 22px;
+  }
+  .card h2 {
+    font-size: 19px; font-weight: 700; letter-spacing: -0.3px;
+    margin-bottom: 6px;
+  }
+  .card .sub { color: var(--gris); font-size: 14px; margin-bottom: 18px; }
+  p.intro { color: var(--gris); font-size: 15px; }
+  p.intro strong { color: var(--tinta); }
+
+  /* Etiqueta de rol */
+  .rol-tag {
+    display: inline-block; font-size: 12px; font-weight: 700;
+    letter-spacing: .5px; text-transform: uppercase;
+    padding: 5px 12px; border-radius: 999px; margin-bottom: 14px;
+  }
+  .rol-pani { background: var(--azul-suave); color: var(--azul); }
+  .rol-sc { background: var(--ambar-suave); color: var(--ambar); }
+
+  /* Recorrido de estados */
+  .flujo {
+    display: flex; align-items: center; flex-wrap: wrap;
+    gap: 8px; margin-top: 6px;
+  }
+  .estado-pill {
+    font-size: 13px; font-weight: 600; padding: 7px 14px;
+    border-radius: 999px; white-space: nowrap;
+  }
+  .flecha { color: var(--gris-claro); font-size: 15px; }
+  .e-borrador  { background:#f1f2f4; color:#41464f; }
+  .e-enviado   { background:#dbe7ff; color:#1d4ed8; }
+  .e-prep      { background:#fdeccb; color:#92500a; }
+  .e-listo     { background:#cdeedd; color:#0c7a44; }
+  .e-entregado { background:#c9eccf; color:#15803d; }
+  .e-rechazado { background:#fbdcdc; color:#b91c1c; }
+  .e-anulado   { background:#e7e8ea; color:#5b616e; }
+
+  /* Pasos numerados */
+  .pasos { list-style: none; counter-reset: paso; margin-top: 6px; }
+  .pasos li {
+    counter-increment: paso;
+    display: flex; gap: 14px; padding: 12px 0;
+    border-bottom: 1px solid var(--linea);
+  }
+  .pasos li:last-child { border-bottom: none; }
+  .pasos li::before {
+    content: counter(paso);
+    flex: 0 0 26px; height: 26px;
+    background: var(--azul); color: #fff;
+    border-radius: 50%; font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pasos.sc li::before { background: var(--ambar); }
+  .pasos .txt { font-size: 15px; }
+  .pasos .txt b { font-weight: 650; }
+  .pasos .nota { display: block; color: var(--gris); font-size: 13.5px; margin-top: 2px; }
+
+  /* Tabla de estados */
+  .estados-list { margin-top: 4px; }
+  .estados-list .row {
+    display: flex; gap: 16px; align-items: baseline;
+    padding: 11px 0; border-bottom: 1px solid var(--linea);
+  }
+  .estados-list .row:last-child { border-bottom: none; }
+  .estados-list .badge-col { flex: 0 0 150px; }
+  .estados-list .desc { font-size: 14.5px; color: var(--gris); }
+
+  /* Aviso */
+  .aviso {
+    display: flex; gap: 12px;
+    background: var(--azul-suave); border: 1px solid #d2e0ff;
+    border-radius: 10px; padding: 14px 16px; margin-top: 16px;
+  }
+  .aviso .mark { color: var(--azul); font-weight: 800; flex: 0 0 auto; }
+  .aviso p { font-size: 14px; color: #2b3a55; }
+
+  /* FAQ */
+  .faq dt { font-weight: 650; font-size: 15px; margin-top: 16px; }
+  .faq dt:first-child { margin-top: 0; }
+  .faq dd { color: var(--gris); font-size: 14.5px; margin-top: 2px; }
+
+  /* Pie */
+  .pie {
+    text-align: center; color: var(--gris-claro);
+    font-size: 12.5px; margin-top: 10px; padding: 8px;
+  }
+
+  @media (max-width: 560px) {
+    body { padding: 20px 12px; }
+    .hero, .card { padding: 24px 20px; }
+    .estados-list .row { flex-direction: column; gap: 2px; }
+  }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .card, .hero { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <header class="hero">
+    <div class="kicker">Sistema de Inventario PEPS · PANI</div>
+    <h1>Órdenes de Pedido</h1>
+    <p>Una guía rápida para solicitar y entregar artículos dentro del sistema.</p>
+  </header>
+
+  <section class="card">
+    <h2>Qué cambió</h2>
+    <p class="intro">
+      Hasta ahora los pedidos a bodega se hacían por <strong>correo o papel</strong>.
+      Desde esta actualización, todo el proceso vive <strong>dentro del sistema</strong>:
+      se solicita, se prepara, se sigue el estado y se entrega en un solo lugar.
+      Encontrás el módulo en el menú, en la opción <strong>Pedidos</strong>.
+      Todo lo demás del sistema funciona igual que siempre.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>El recorrido de un pedido</h2>
+    <p class="sub">Este es el recorrido normal de un pedido. El color indica en qué punto está.</p>
+    <div class="flujo">
+      <span class="estado-pill e-borrador">Borrador</span>
+      <span class="flecha">→</span>
+      <span class="estado-pill e-enviado">Enviado</span>
+      <span class="flecha">→</span>
+      <span class="estado-pill e-prep">En preparación</span>
+      <span class="flecha">→</span>
+      <span class="estado-pill e-listo">Listo para retiro</span>
+      <span class="flecha">→</span>
+      <span class="estado-pill e-entregado">Entregado</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <span class="rol-tag rol-pani">Si solicitás — PANI</span>
+    <h2>Cómo pedir artículos</h2>
+    <ol class="pasos">
+      <li><span class="txt"><b>Abrí «Pedidos»</b> en el menú y tocá <b>«Nuevo pedido»</b>.</span></li>
+      <li><span class="txt">Elegí la <b>bodega</b> de origen y la <b>unidad receptora</b>.</span></li>
+      <li><span class="txt"><b>Agregá los artículos</b> que necesitás con su cantidad. El buscador muestra solo lo que tiene stock.
+        <span class="nota">Si pedís más de lo disponible, el sistema avisa — pero igual podés enviarlo.</span></span></li>
+      <li><span class="txt">Tocá <b>«Guardar borrador»</b> si querés terminarlo después, o <b>«Enviar pedido»</b> para mandarlo a bodega.</span></li>
+      <li><span class="txt"><b>Seguí el estado</b> desde «Pedidos». Cuando aparezca <b>«Listo para retiro»</b>, ya podés pasar a recogerlo.</span></li>
+    </ol>
+    <div class="aviso">
+      <span class="mark">i</span>
+      <p>Un borrador se puede editar o anular cuando quieras. Una vez <b>enviado</b>, ya no se edita: si necesitás un cambio, anulalo y creá uno nuevo.</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <span class="rol-tag rol-sc">Si preparás — Super Cadena</span>
+    <h2>Cómo atender un pedido</h2>
+    <ol class="pasos sc">
+      <li><span class="txt"><b>Abrí «Pedidos»</b>. La <b>bandeja</b> muestra lo que está pendiente de atender.</span></li>
+      <li><span class="txt">Entrá a un pedido y tocá <b>«Aceptar y preparar»</b>. El pedido pasa a «En preparación»; el solicitante lo ve reflejado al consultar su pedido.</span></li>
+      <li><span class="txt">Cuando el pedido esté armado, tocá <b>«Marcar como listo»</b>.</span></li>
+      <li><span class="txt">Cuando el solicitante lo retira, tocá <b>«Entregar»</b>: registrás quién recibe (nombre y cédula) y confirmás las cantidades.
+        <span class="nota">Podés entregar menos de lo solicitado si no hay stock completo.</span></span></li>
+    </ol>
+    <div class="aviso">
+      <span class="mark">i</span>
+      <p>Si un pedido no se puede atender, usá <b>«Rechazar»</b> e indicá el motivo. La entrega descuenta el inventario automáticamente — por eso es un paso definitivo.</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Qué significa cada estado</h2>
+    <div class="estados-list">
+      <div class="row">
+        <span class="badge-col"><span class="estado-pill e-borrador">Borrador</span></span>
+        <span class="desc">En preparación por el solicitante. Todavía no llegó a bodega.</span>
+      </div>
+      <div class="row">
+        <span class="badge-col"><span class="estado-pill e-enviado">Enviado</span></span>
+        <span class="desc">El solicitante lo mandó. Esperando que bodega lo tome.</span>
+      </div>
+      <div class="row">
+        <span class="badge-col"><span class="estado-pill e-prep">En preparación</span></span>
+        <span class="desc">Bodega lo aceptó y está armando el pedido.</span>
+      </div>
+      <div class="row">
+        <span class="badge-col"><span class="estado-pill e-listo">Listo para retiro</span></span>
+        <span class="desc">El pedido está armado. El solicitante puede pasar a recogerlo.</span>
+      </div>
+      <div class="row">
+        <span class="badge-col"><span class="estado-pill e-entregado">Entregado</span></span>
+        <span class="desc">Retirado y firmado. El inventario quedó descontado.</span>
+      </div>
+      <div class="row">
+        <span class="badge-col"><span class="estado-pill e-rechazado">Rechazado</span></span>
+        <span class="desc">Bodega no pudo atenderlo. El motivo queda registrado.</span>
+      </div>
+      <div class="row">
+        <span class="badge-col"><span class="estado-pill e-anulado">Anulado</span></span>
+        <span class="desc">Cancelado por el solicitante o por bodega.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Preguntas rápidas</h2>
+    <dl class="faq">
+      <dt>¿Crear un pedido descuenta inventario?</dt>
+      <dd>No. El inventario se descuenta recién cuando bodega marca el pedido como entregado.</dd>
+
+      <dt>¿Puedo cambiar un pedido ya enviado?</dt>
+      <dd>No. Solo se editan los borradores. Si un pedido enviado necesita cambios, se anula y se crea uno nuevo.</dd>
+
+      <dt>¿Qué pasa si no hay stock de todo lo pedido?</dt>
+      <dd>Bodega puede entregar una cantidad parcial, o rechazar el pedido indicando el motivo.</dd>
+
+      <dt>¿Quién ve mis pedidos?</dt>
+      <dd>Cada solicitante ve únicamente sus propios pedidos. Bodega y administración ven todos.</dd>
+
+      <dt>¿Cómo obtengo un comprobante?</dt>
+      <dd>Desde el detalle de cualquier pedido, con el botón «Descargar PDF». La boleta de entrega incluye una firma digital.</dd>
+    </dl>
+  </section>
+
+  <p class="pie">Sistema de Inventario PEPS — Patronato Nacional de la Infancia · Costa Rica</p>
+
+</div>
+</body>
+</html>

@@ -14,6 +14,7 @@ import {
   Package,
   TrendingDown,
   ClipboardList,
+  ClipboardCheck,
   FileText,
   AlertCircle,
   Boxes,
@@ -30,6 +31,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { ContadorBadge } from '@/components/pedidos/contador-badge';
 
 interface NavItem {
   name: string;
@@ -58,6 +60,11 @@ const navigation: NavItem[] = [
     name: 'Despachos',
     href: '/despachos',
     icon: TrendingDown,
+  },
+  {
+    name: 'Pedidos',
+    href: '/pedidos',
+    icon: ClipboardCheck,
   },
   {
     name: 'Inventario',
@@ -174,6 +181,7 @@ export function Navbar() {
                 >
                   <Icon className="w-4 h-4 flex-shrink-0" />
                   <span>{item.name}</span>
+                  {item.href === '/pedidos' && <ContadorBadge />}
                 </Link>
               );
             })}
@@ -285,6 +293,7 @@ export function Navbar() {
                 >
                   <Icon className="w-5 h-5" />
                   <span>{item.name}</span>
+                  {item.href === '/pedidos' && <ContadorBadge />}
                 </Link>
               );
             })}

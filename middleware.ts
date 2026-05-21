@@ -34,11 +34,11 @@ export async function middleware(request: NextRequest) {
 
   // Protected routes - redirect to login if not authenticated
   const protectedPaths = [
-    '/admin', '/dashboard',
+    '/admin', '/dashboard', '/pedidos',
     '/api/articulos', '/api/despachos', '/api/recepciones', '/api/inventario', '/api/usuarios',
     '/api/configuracion', '/api/catalogo-sigaf', '/api/proveedores', '/api/bitacora',
     '/api/exportar', '/api/documentos-recepcion', '/api/ajustes', '/api/cortes',
-    '/api/bodegas', '/api/unidades-receptoras',
+    '/api/bodegas', '/api/unidades-receptoras', '/api/pedidos',
   ]
   const isProtectedPath = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))
 
@@ -65,11 +65,13 @@ export async function middleware(request: NextRequest) {
     { path: '/despachos/nuevo', roles: ['ADMINISTRADOR', 'OPERADOR'] },
     { path: '/ajustes/nuevo', roles: ['ADMINISTRADOR', 'OPERADOR'] },
     { path: '/cortes/nuevo', roles: ['ADMINISTRADOR', 'OPERADOR'] },
+    { path: '/pedidos/nuevo', roles: ['ADMINISTRADOR', 'AUDITOR'] },
   ]
 
   const pathname = request.nextUrl.pathname
   if (user && !pathname.startsWith('/api/')) {
-    const userRole = user.app_metadata?.rol || user.user_metadata?.rol
+    // Solo app_metadata: user_metadata es editable por el propio usuario y permitiría auto-escalada de rol.
+    const userRole = user.app_metadata?.rol
     const matched = ROLE_RESTRICTED_ROUTES.find(r => pathname.startsWith(r.path))
     if (matched && !matched.roles.includes(userRole)) {
       return NextResponse.redirect(new URL('/dashboard', request.url))

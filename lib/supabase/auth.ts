@@ -50,14 +50,16 @@ export async function getCurrentUserId(): Promise<string | null> {
 
 /**
  * Mapea un usuario de Supabase a UsuarioAuth.
- * Reads from app_metadata first, falls back to user_metadata.
+ * El rol se lee EXCLUSIVAMENTE de app_metadata: user_metadata es editable por el
+ * propio usuario (supabase.auth.updateUser) y leerlo permitiría auto-escalada de rol.
+ * Si falta el rol en app_metadata se cae a AUDITOR (mínimo privilegio).
  */
 export function mapUserToAuth(user: User): UsuarioAuth {
   return {
     id: user.id,
     email: user.email || '',
     nombre: user.app_metadata?.nombre || user.user_metadata?.nombre || user.email?.split('@')[0] || 'Usuario',
-    rol: (user.app_metadata?.rol as RolUsuario) || (user.user_metadata?.rol as RolUsuario) || 'OPERADOR',
+    rol: (user.app_metadata?.rol as RolUsuario) || 'AUDITOR',
   }
 }
 
