@@ -6,7 +6,7 @@
  * - OPERADOR/ADMIN ven todos; tab "Bandeja" filtra ENVIADO + EN_PREPARACION.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Plus, RefreshCw, Search, ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react'
@@ -37,7 +37,7 @@ const ESTADOS_FILTRO: EstadoPedido[] = [
   'BORRADOR', 'ENVIADO', 'EN_PREPARACION', 'LISTO_RETIRO', 'ENTREGADO', 'RECHAZADO', 'ANULADO',
 ]
 
-export default function PedidosPage() {
+function PedidosContent() {
   const { user } = useAuth()
   const canCreate = user?.rol ? hasPermission(user.rol, 'pedidos.crear') : false
   const canVerTodos = user?.rol ? hasPermission(user.rol, 'pedidos.ver_todos') : false
@@ -240,5 +240,13 @@ export default function PedidosPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function PedidosPage() {
+  return (
+    <Suspense fallback={<div className="container mx-auto px-4 py-6 text-zinc-500">Cargando…</div>}>
+      <PedidosContent />
+    </Suspense>
   )
 }
