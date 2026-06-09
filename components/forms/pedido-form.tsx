@@ -121,8 +121,20 @@ export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales }: Pedid
     const errs: Record<string, string> = {}
     if (!bodegaId) errs.bodegaId = 'Seleccione la bodega'
     if (!unidadReceptoraId) errs.unidadReceptoraId = 'Seleccione la unidad receptora'
+    // Detectar artículos repetidos: el backend rechaza el pedido entero si un
+    // artículo aparece en dos líneas. Lo cazamos acá y apuntamos a la línea exacta.
+    const primeraLineaPorArticulo = new Map<string, number>()
     lineas.forEach((l, i) => {
-      if (!l.articuloId) errs[`linea_${i}_articulo`] = 'Seleccione un artículo'
+      if (!l.articuloId) {
+        errs[`linea_${i}_articulo`] = 'Seleccione un artículo'
+      } else {
+        const primera = primeraLineaPorArticulo.get(l.articuloId)
+        if (primera !== undefined) {
+          errs[`linea_${i}_articulo`] = `Artículo repetido: ya está en la línea #${primera}. Borre esta línea y sume la cantidad en la #${primera}.`
+        } else {
+          primeraLineaPorArticulo.set(l.articuloId, i + 1)
+        }
+      }
       const c = Number(l.cantidad)
       if (!c || c <= 0) errs[`linea_${i}_cantidad`] = 'Cantidad inválida'
     })
@@ -177,7 +189,13 @@ export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales }: Pedid
       })
       const data = await res.json()
       if (!res.ok || !data.success) {
-        const msg = data.error || 'No se pudo guardar el pedido'
+        // El API devuelve el motivo específico en `detalles` (fieldErrors de Zod);
+        // mostrarlo en vez del genérico "Datos inválidos" para que se sepa qué corregir.
+        const detalles = data.detalles as Record<string, string[] | undefined> | undefined
+        const especificos = detalles
+          ? [...new Set(Object.values(detalles).flat().filter((m): m is string => !!m))]
+          : []
+        const msg = especificos.length > 0 ? especificos.join(' ') : data.error || 'No se pudo guardar el pedido'
         setError(msg)
         toast.error('No se pudo guardar el pedido', msg)
         return
@@ -254,6 +272,11 @@ export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales }: Pedid
             const cant = Number(linea.cantidad)
             const stock = linea.articulo?.stockTotal
             const excedeStock = stock != null && cant > 0 && cant > stock
+            // Artículos ya elegidos en las OTRAS líneas: el selector los bloquea
+            // para que no se pueda repetir el mismo artículo (el backend lo rechaza).
+            const yaEnOtrasLineas = lineas
+              .map((l, i) => ({ id: l.articuloId, linea: i + 1 }))
+              .filter((x) => x.id && x.linea !== idx + 1)
             return (
               <div
                 key={linea.id}
@@ -271,6 +294,7 @@ export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales }: Pedid
                     bodegaId={bodegaId || undefined}
                     soloConStock={true}
                     error={fieldErrors[`linea_${idx}_articulo`]}
+                    yaSeleccionados={yaEnOtrasLineas}
                   />
                 </div>
                 <div>

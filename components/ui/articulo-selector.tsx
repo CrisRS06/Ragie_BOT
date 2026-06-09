@@ -29,6 +29,12 @@ interface ArticuloSelectorProps {
   error?: string;
   placeholder?: string;
   label?: string;
+  /**
+   * Artículos que ya están en OTRAS líneas del mismo pedido (con su número de
+   * línea). Aparecen deshabilitados en el buscador para que no se puedan agregar
+   * dos veces: el backend rechaza el pedido entero si un artículo se repite.
+   */
+  yaSeleccionados?: { id: string; linea: number }[];
 }
 
 export function ArticuloSelector({
@@ -41,6 +47,7 @@ export function ArticuloSelector({
   error,
   placeholder = 'Buscar por SKU, nombre, codigo SIGAF, marca...',
   label = 'Articulo',
+  yaSeleccionados = [],
 }: ArticuloSelectorProps) {
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<Articulo[]>([]);
@@ -164,7 +171,12 @@ export function ArticuloSelector({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // articuloId -> número de línea donde ya está agregado (en otra línea del pedido)
+  const bloqueados = new Map(yaSeleccionados.map((x) => [x.id, x.linea]));
+
   const handleSelect = (articulo: Articulo) => {
+    // No permitir agregar un artículo que ya está en otra línea.
+    if (bloqueados.has(articulo.id)) return;
     setSelected(articulo);
     setSearch(articulo.nombre);
     setShowResults(false);
@@ -272,32 +284,59 @@ export function ArticuloSelector({
           )}
 
           {!loading && results.length > 0 && (
-            results.map((articulo) => (
-              <div
-                key={articulo.id}
-                onClick={() => handleSelect(articulo)}
-                className="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm text-gray-900 dark:text-white">
+            results.map((articulo) => {
+              const lineaBloqueo = bloqueados.get(articulo.id);
+              // Ya está en otra línea del pedido: mostrarlo deshabilitado para
+              // que el usuario vea que lo tiene (y dónde), pero no lo pueda repetir.
+              if (lineaBloqueo !== undefined) {
+                return (
+                  <div
+                    key={articulo.id}
+                    aria-disabled="true"
+                    title={`Este artículo ya está en la línea #${lineaBloqueo} del pedido`}
+                    className="px-4 py-3 cursor-not-allowed opacity-60 bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                  >
+                    <div className="font-medium text-sm text-gray-500 dark:text-gray-400">
                       {articulo.sku} - {truncateText(articulo.nombre, 40)}
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex flex-wrap gap-x-3 gap-y-1">
-                      <span className="font-semibold text-green-600 dark:text-green-400">
-                        Stock: {articulo.stockTotal} {articulo.unidadMedida}
+                    <div className="text-xs mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                      <span className="font-semibold text-amber-600 dark:text-amber-400">
+                        Ya en el pedido — línea #{lineaBloqueo}
                       </span>
                       {articulo.codigoSIGAF && (
-                        <span>SIGAF: {articulo.codigoSIGAF}</span>
-                      )}
-                      {articulo.marca && (
-                        <span>Marca: {articulo.marca}</span>
+                        <span className="text-gray-400">SIGAF: {articulo.codigoSIGAF}</span>
                       )}
                     </div>
                   </div>
+                );
+              }
+              return (
+                <div
+                  key={articulo.id}
+                  onClick={() => handleSelect(articulo)}
+                  className="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm text-gray-900 dark:text-white">
+                        {articulo.sku} - {truncateText(articulo.nombre, 40)}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                        <span className="font-semibold text-green-600 dark:text-green-400">
+                          Stock: {articulo.stockTotal} {articulo.unidadMedida}
+                        </span>
+                        {articulo.codigoSIGAF && (
+                          <span>SIGAF: {articulo.codigoSIGAF}</span>
+                        )}
+                        {articulo.marca && (
+                          <span>Marca: {articulo.marca}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}
