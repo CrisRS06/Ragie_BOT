@@ -188,6 +188,22 @@ export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales }: Pedid
         body: JSON.stringify(payload),
       })
       const data = await res.json()
+      if (res.status === 409 && data.code === 'STOCK_INSUFICIENTE') {
+        // El pedido excede el stock disponible. El borrador quedó guardado: lo
+        // llevamos al detalle para ajustarlo (reducir / editar) o, si es admin,
+        // forzar el envío desde ahí.
+        const fs = Array.isArray(data.faltantes) ? data.faltantes : []
+        const resumen = fs
+          .map((f: { sku: string; demanda: number; disponible: number }) => `${f.sku}: pide ${f.demanda}, disponible ${f.disponible}`)
+          .join('. ')
+        toast.error('Stock insuficiente, se guardó como borrador', resumen || 'No hay stock disponible')
+        if (data.pedido?.id) {
+          router.push(`/pedidos/${data.pedido.id}`)
+          return
+        }
+        setError(resumen || 'El pedido excede el stock disponible')
+        return
+      }
       if (!res.ok || !data.success) {
         // El API devuelve el motivo específico en `detalles` (fieldErrors de Zod);
         // mostrarlo en vez del genérico "Datos inválidos" para que se sepa qué corregir.
@@ -270,8 +286,10 @@ export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales }: Pedid
         <div className="space-y-3">
           {lineas.map((linea, idx) => {
             const cant = Number(linea.cantidad)
-            const stock = linea.articulo?.stockTotal
-            const excedeStock = stock != null && cant > 0 && cant > stock
+            // Disponible-para-comprometer = stock − pedidos abiertos. Si el API
+            // aún no lo trae, se cae a stockTotal.
+            const disponible = linea.articulo?.disponibleParaComprometer ?? linea.articulo?.stockTotal
+            const excedeStock = disponible != null && cant > 0 && cant > disponible
             // Artículos ya elegidos en las OTRAS líneas: el selector los bloquea
             // para que no se pueda repetir el mismo artículo (el backend lo rechaza).
             const yaEnOtrasLineas = lineas
@@ -308,7 +326,8 @@ export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales }: Pedid
                   />
                   {excedeStock && (
                     <p className="mt-1 text-xs text-amber-600">
-                      Supera el stock en bodega ({stock} {linea.articulo?.unidadMedida}). El pedido igual se puede enviar.
+                      Excede lo disponible ({disponible} {linea.articulo?.unidadMedida}, contando pedidos abiertos).
+                      No se podrá enviar salvo que un administrador lo autorice.
                     </p>
                   )}
                 </div>

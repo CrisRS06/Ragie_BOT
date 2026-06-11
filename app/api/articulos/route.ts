@@ -115,6 +115,28 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Cantidad ya comprometida por órdenes de pedido ABIERTAS (no descontada aún
+    // del stock; el descuento real ocurre al ENTREGAR). Permite mostrar el
+    // disponible-para-comprometer en el selector de pedidos. Mismo scope de
+    // bodega que el stock. Es solo un aviso (UX): el bloqueo autoritativo vive
+    // en la PG function enviar_orden_pedido.
+    let comprometidoQuery = supabase
+      .from('ordenes_pedido_lineas')
+      .select('articulo_id, cantidad_solicitada, ordenes_pedido!inner(estado, bodega_id)')
+      .in('ordenes_pedido.estado', ['ENVIADO', 'EN_PREPARACION', 'LISTO_RETIRO'])
+    if (bodegaId) {
+      comprometidoQuery = comprometidoQuery.eq('ordenes_pedido.bodega_id', bodegaId)
+    }
+    const { data: lineasAbiertas, error: comprometidoError } = await comprometidoQuery
+    if (comprometidoError) {
+      // No es fatal para listar artículos: degradar a comprometido 0.
+      console.error('Error calculando comprometido de pedidos abiertos:', comprometidoError)
+    }
+    const comprometidoPorArticulo: Record<string, number> = {}
+    for (const l of lineasAbiertas || []) {
+      comprometidoPorArticulo[l.articulo_id] = (comprometidoPorArticulo[l.articulo_id] || 0) + Number(l.cantidad_solicitada)
+    }
+
     // Mapear artículos con su stock (sin queries adicionales)
     let articulosConStock = (articulos || []).map((articulo) => {
       const stockInfo = stockPorArticulo[articulo.id] || { total: 0, count: 0 }
@@ -140,6 +162,8 @@ export async function GET(request: NextRequest) {
         } : null,
         stockTotal: stockInfo.total,
         lotesActivos: stockInfo.count,
+        comprometido: comprometidoPorArticulo[articulo.id] || 0,
+        disponibleParaComprometer: stockInfo.total - (comprometidoPorArticulo[articulo.id] || 0),
       }
     })
 

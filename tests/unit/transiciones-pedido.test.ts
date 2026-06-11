@@ -19,7 +19,7 @@ const TODOS_ESTADOS: EstadoPedido[] = [
   'ENTREGADO', 'RECHAZADO', 'ANULADO',
 ]
 const TODAS_ACCIONES: AccionPedido[] = [
-  'enviar', 'aceptar', 'marcar_listo', 'entregar', 'rechazar', 'anular',
+  'enviar', 'aceptar', 'marcar_listo', 'entregar', 'rechazar', 'anular', 'reabrir',
 ]
 const TODOS_ROLES: RolUsuario[] = ['ADMINISTRADOR', 'OPERADOR', 'AUDITOR']
 
@@ -34,8 +34,8 @@ describe('TRANSICIONES_VALIDAS', () => {
     expect(TRANSICIONES_VALIDAS.BORRADOR).toEqual(['ENVIADO', 'ANULADO'])
   })
 
-  it('ENVIADO puede ir a EN_PREPARACION, RECHAZADO o ANULADO', () => {
-    expect(TRANSICIONES_VALIDAS.ENVIADO).toEqual(['EN_PREPARACION', 'RECHAZADO', 'ANULADO'])
+  it('ENVIADO puede ir a EN_PREPARACION, RECHAZADO, ANULADO o BORRADOR (reabrir)', () => {
+    expect(TRANSICIONES_VALIDAS.ENVIADO).toEqual(['EN_PREPARACION', 'RECHAZADO', 'ANULADO', 'BORRADOR'])
   })
 
   it('EN_PREPARACION puede ir a LISTO_RETIRO, RECHAZADO o ANULADO', () => {
@@ -60,6 +60,7 @@ describe('puedeTransicionar — reglas por rol', () => {
               entregar: 'ENTREGADO',
               rechazar: 'RECHAZADO',
               anular: 'ANULADO',
+              reabrir: 'BORRADOR',
             } as const)[accion] === d
           })
           // Probamos como no-solicitante para no enmascarar reglas
@@ -86,6 +87,26 @@ describe('puedeTransicionar — reglas por rol', () => {
     it('NO puede aceptar ni entregar (operaciones del bodeguero)', () => {
       expect(puedeTransicionar('ENVIADO', 'aceptar', 'AUDITOR', true)).toBe(false)
       expect(puedeTransicionar('LISTO_RETIRO', 'entregar', 'AUDITOR', true)).toBe(false)
+    })
+  })
+
+  describe('reabrir (devolver a borrador)', () => {
+    it('el solicitante puede reabrir su propio ENVIADO', () => {
+      expect(puedeTransicionar('ENVIADO', 'reabrir', 'AUDITOR', true)).toBe(true)
+    })
+    it('NO puede reabrir si no es el solicitante (rol no admin)', () => {
+      expect(puedeTransicionar('ENVIADO', 'reabrir', 'AUDITOR', false)).toBe(false)
+    })
+    it('ADMIN puede reabrir un ENVIADO ajeno', () => {
+      expect(puedeTransicionar('ENVIADO', 'reabrir', 'ADMINISTRADOR', false)).toBe(true)
+    })
+    it('NO se puede reabrir fuera de ENVIADO', () => {
+      expect(puedeTransicionar('BORRADOR', 'reabrir', 'AUDITOR', true)).toBe(false)
+      expect(puedeTransicionar('EN_PREPARACION', 'reabrir', 'AUDITOR', true)).toBe(false)
+      expect(puedeTransicionar('EN_PREPARACION', 'reabrir', 'ADMINISTRADOR', false)).toBe(false)
+    })
+    it('OPERADOR no puede reabrir', () => {
+      expect(puedeTransicionar('ENVIADO', 'reabrir', 'OPERADOR', false)).toBe(false)
     })
   })
 
@@ -128,6 +149,11 @@ describe('accionesDisponibles', () => {
   it('OPERADOR en ENVIADO ve aceptar y rechazar', () => {
     const arr = accionesDisponibles('ENVIADO', 'OPERADOR', false)
     expect(arr.sort()).toEqual(['aceptar', 'rechazar'].sort())
+  })
+
+  it('AUDITOR solicitante en ENVIADO ve anular y reabrir', () => {
+    const arr = accionesDisponibles('ENVIADO', 'AUDITOR', true)
+    expect(arr.sort()).toEqual(['anular', 'reabrir'].sort())
   })
 
   it('OPERADOR en EN_PREPARACION ve marcar_listo y rechazar', () => {

@@ -23,13 +23,14 @@ export type AccionPedido =
   | 'entregar'
   | 'rechazar'
   | 'anular'
+  | 'reabrir'
 
 export const ESTADOS_TERMINALES: EstadoPedido[] = ['ENTREGADO', 'RECHAZADO', 'ANULADO']
 
 /** Transiciones de estado permitidas (independiente del rol). */
 export const TRANSICIONES_VALIDAS: Record<EstadoPedido, EstadoPedido[]> = {
   BORRADOR: ['ENVIADO', 'ANULADO'],
-  ENVIADO: ['EN_PREPARACION', 'RECHAZADO', 'ANULADO'],
+  ENVIADO: ['EN_PREPARACION', 'RECHAZADO', 'ANULADO', 'BORRADOR'],
   EN_PREPARACION: ['LISTO_RETIRO', 'RECHAZADO', 'ANULADO'],
   LISTO_RETIRO: ['ENTREGADO', 'ANULADO'],
   ENTREGADO: [],
@@ -45,6 +46,7 @@ const ESTADO_DESTINO: Record<AccionPedido, EstadoPedido> = {
   entregar: 'ENTREGADO',
   rechazar: 'RECHAZADO',
   anular: 'ANULADO',
+  reabrir: 'BORRADOR',
 }
 
 /**
@@ -81,6 +83,11 @@ export function puedeTransicionar(
       if (esSolicitante && (estado === 'BORRADOR' || estado === 'ENVIADO')) return true
       if (rol === 'OPERADOR' && estado === 'LISTO_RETIRO') return true
       return false
+
+    case 'reabrir':
+      // Devolver a borrador para corregir: solo el solicitante (o ADMIN) y solo
+      // mientras el bodeguero no lo haya aceptado (estado ENVIADO).
+      return esSolicitante && estado === 'ENVIADO'
   }
 }
 
@@ -90,7 +97,7 @@ export function accionesDisponibles(
   rol: RolUsuario,
   esSolicitante: boolean
 ): AccionPedido[] {
-  const acciones: AccionPedido[] = ['enviar', 'aceptar', 'marcar_listo', 'entregar', 'rechazar', 'anular']
+  const acciones: AccionPedido[] = ['enviar', 'aceptar', 'marcar_listo', 'entregar', 'rechazar', 'anular', 'reabrir']
   return acciones.filter((a) => puedeTransicionar(estado, a, rol, esSolicitante))
 }
 
@@ -112,4 +119,5 @@ export const LABEL_ACCION: Record<AccionPedido, string> = {
   entregar: 'Entregar',
   rechazar: 'Rechazar',
   anular: 'Anular',
+  reabrir: 'Devolver a borrador',
 }

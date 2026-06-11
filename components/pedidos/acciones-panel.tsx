@@ -4,9 +4,12 @@
  * Panel de acciones de un pedido. Muestra solo los botones disponibles según
  * rol/estado/ownership y resuelve cada uno con modales (nunca window.prompt):
  *  - Aceptar / Marcar listo: ejecutan directo (reversibles).
- *  - Enviar: AlertDialog de confirmación (congela líneas).
+ *  - Enviar: AlertDialog de confirmación (congela líneas). Si el stock no
+ *    alcanza, el servidor responde 409 y se ofrece forzar (solo admin, con motivo).
  *  - Rechazar / Anular: MotivoDialog (textarea con validación).
+ *  - Devolver a borrador (reabrir): AlertDialog de confirmación.
  *  - Entregar: EntregaDialog (receptor + cédula + cantidades).
+ *  - Reducir cantidades: ReducirDialog (bajar líneas sin reabrir).
  * Cada resultado dispara un toast de éxito o error.
  */
 
@@ -16,6 +19,7 @@ import { Button } from '@/components/ui/button'
 import { AlertDialog } from '@/components/ui/dialog'
 import { MotivoDialog } from '@/components/pedidos/motivo-dialog'
 import { EntregaDialog } from '@/components/pedidos/entrega-dialog'
+import { ReducirDialog } from '@/components/pedidos/reducir-dialog'
 import { toast } from '@/lib/hooks/use-toast'
 import {
   accionesDisponibles,
@@ -33,6 +37,14 @@ interface LineaEntrega {
   articulo: { sku: string; nombre: string; unidad_medida: string } | null
 }
 
+interface Faltante {
+  sku: string
+  nombre: string
+  demanda: number
+  disponible: number
+  faltante: number
+}
+
 interface Props {
   pedidoId: string
   estado: EstadoPedido
@@ -42,7 +54,15 @@ interface Props {
   onCompletado: () => void | Promise<void>
 }
 
-type ModalAbierto = 'confirmar-enviar' | 'motivo-rechazar' | 'motivo-anular' | 'entrega' | null
+type ModalAbierto =
+  | 'confirmar-enviar'
+  | 'forzar-envio'
+  | 'motivo-rechazar'
+  | 'motivo-anular'
+  | 'confirmar-reabrir'
+  | 'entrega'
+  | 'reducir'
+  | null
 
 const MENSAJE_EXITO: Record<AccionPedido, string> = {
   enviar: 'Pedido enviado',
@@ -51,15 +71,31 @@ const MENSAJE_EXITO: Record<AccionPedido, string> = {
   entregar: 'Pedido entregado',
   rechazar: 'Pedido rechazado',
   anular: 'Pedido anulado',
+  reabrir: 'Pedido devuelto a borrador',
+}
+
+function resumenFaltantes(faltantes: Faltante[]): string {
+  return faltantes
+    .map((f) => `${f.sku}: pide ${f.demanda}, disponible ${f.disponible}`)
+    .join('. ')
 }
 
 export function AccionesPanel({ pedidoId, estado, rol, esSolicitante, lineas, onCompletado }: Props) {
   const router = useRouter()
   const [pending, setPending] = useState<AccionPedido | null>(null)
+  const [reduciendo, setReduciendo] = useState(false)
   const [modal, setModal] = useState<ModalAbierto>(null)
+  const [faltantes, setFaltantes] = useState<Faltante[]>([])
 
+  const esAdmin = rol === 'ADMINISTRADOR'
   const acciones = accionesDisponibles(estado, rol, esSolicitante)
-  if (acciones.length === 0) return null
+  // Reducir no es una transición de estado: admin en ENVIADO/EN_PREPARACION,
+  // solicitante solo en ENVIADO.
+  const puedeReducir =
+    (esAdmin && (estado === 'ENVIADO' || estado === 'EN_PREPARACION')) ||
+    (esSolicitante && estado === 'ENVIADO')
+
+  if (acciones.length === 0 && !puedeReducir) return null
 
   async function ejecutar(accion: AccionPedido, body?: Record<string, unknown>): Promise<void> {
     const ruta = accion === 'marcar_listo' ? 'listo' : accion
@@ -86,6 +122,65 @@ export function AccionesPanel({ pedidoId, estado, rol, esSolicitante, lineas, on
     }
   }
 
+  async function intentarEnviar(forzar = false, motivo?: string): Promise<void> {
+    setPending('enviar')
+    try {
+      const res = await fetch(`/api/pedidos/${pedidoId}/enviar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forzar, motivo }),
+      })
+      const data = await res.json()
+      if (res.status === 409 && data.code === 'STOCK_INSUFICIENTE') {
+        const fs: Faltante[] = Array.isArray(data.faltantes) ? data.faltantes : []
+        setFaltantes(fs)
+        if (data.puedeForzar) {
+          setModal('forzar-envio')
+        } else {
+          setModal(null)
+          toast.error('Stock insuficiente', resumenFaltantes(fs) || 'No hay stock disponible para este pedido')
+        }
+        return
+      }
+      if (!res.ok || !data.success) {
+        toast.error('No se pudo enviar', data.error)
+        return
+      }
+      toast.success(MENSAJE_EXITO.enviar)
+      setModal(null)
+      await onCompletado()
+      router.refresh()
+    } catch (err) {
+      toast.error('Error de red', err instanceof Error ? err.message : undefined)
+    } finally {
+      setPending(null)
+    }
+  }
+
+  async function ejecutarReducir(lineasReducidas: { id: string; cantidadSolicitada: number }[]): Promise<void> {
+    setReduciendo(true)
+    try {
+      const res = await fetch(`/api/pedidos/${pedidoId}/reducir`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lineas: lineasReducidas }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        toast.error('No se pudo reducir', data.error)
+        return
+      }
+      toast.success('Cantidades reducidas')
+      setModal(null)
+      await onCompletado()
+      router.refresh()
+    } catch (err) {
+      toast.error('Error de red', err instanceof Error ? err.message : undefined)
+    } finally {
+      setReduciendo(false)
+    }
+  }
+
   function onClick(accion: AccionPedido) {
     switch (accion) {
       case 'aceptar':
@@ -100,6 +195,9 @@ export function AccionesPanel({ pedidoId, estado, rol, esSolicitante, lineas, on
         break
       case 'anular':
         setModal('motivo-anular')
+        break
+      case 'reabrir':
+        setModal('confirmar-reabrir')
         break
       case 'entregar':
         setModal('entrega')
@@ -121,23 +219,46 @@ export function AccionesPanel({ pedidoId, estado, rol, esSolicitante, lineas, on
             key={a}
             variant={variant(a)}
             size="sm"
-            disabled={pending !== null}
+            disabled={pending !== null || reduciendo}
             isLoading={pending === a}
             onClick={() => onClick(a)}
           >
             {LABEL_ACCION[a]}
           </Button>
         ))}
+        {puedeReducir && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pending !== null || reduciendo}
+            isLoading={reduciendo}
+            onClick={() => setModal('reducir')}
+          >
+            Reducir cantidades
+          </Button>
+        )}
       </div>
 
       <AlertDialog
         open={modal === 'confirmar-enviar'}
         onClose={() => setModal(null)}
-        onConfirm={() => ejecutar('enviar')}
+        onConfirm={() => intentarEnviar(false)}
         title="Enviar pedido"
         description="Al enviar, las líneas quedan congeladas y no podrás editarlas. ¿Continuar?"
         confirmText="Enviar pedido"
         variant="warning"
+        loading={pending === 'enviar'}
+      />
+
+      <MotivoDialog
+        open={modal === 'forzar-envio'}
+        onClose={() => setModal(null)}
+        onConfirm={(motivo) => intentarEnviar(true, motivo)}
+        titulo="Forzar envío sin stock"
+        descripcion={`El pedido excede el stock disponible (${resumenFaltantes(faltantes)}). Como administrador podés enviarlo igual; quedará registrado con tu motivo.`}
+        minLength={5}
+        placeholder="Motivo para enviar sin stock suficiente..."
+        confirmText="Forzar envío"
         loading={pending === 'enviar'}
       />
 
@@ -165,12 +286,31 @@ export function AccionesPanel({ pedidoId, estado, rol, esSolicitante, lineas, on
         loading={pending === 'anular'}
       />
 
+      <AlertDialog
+        open={modal === 'confirmar-reabrir'}
+        onClose={() => setModal(null)}
+        onConfirm={() => ejecutar('reabrir')}
+        title="Devolver a borrador"
+        description="El pedido volverá a borrador para que puedas editar las líneas y reenviarlo. ¿Continuar?"
+        confirmText="Devolver a borrador"
+        variant="warning"
+        loading={pending === 'reabrir'}
+      />
+
       <EntregaDialog
         open={modal === 'entrega'}
         onClose={() => setModal(null)}
         onConfirm={(datos) => ejecutar('entregar', datos)}
         lineas={lineas}
         loading={pending === 'entregar'}
+      />
+
+      <ReducirDialog
+        open={modal === 'reducir'}
+        onClose={() => setModal(null)}
+        onConfirm={ejecutarReducir}
+        lineas={lineas}
+        loading={reduciendo}
       />
     </div>
   )

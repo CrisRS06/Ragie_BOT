@@ -10,6 +10,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { hasPermission } from '@/lib/permissions'
 import { crearOrdenPedidoSchema } from '@/lib/validations/orden-pedido.schema'
 import { resolverUsuarios } from '@/lib/orden-pedido/resolver-usuarios'
+import { rpcPedido } from '@/lib/orden-pedido/rpc'
 import type { Database } from '@/lib/supabase/database.types'
 
 export async function POST(request: NextRequest) {
@@ -28,8 +29,12 @@ export async function POST(request: NextRequest) {
     }
     const datos = validacion.data
     const enviarAhora = request.nextUrl.searchParams.get('enviar') === 'true'
+    const esAdmin = user.rol === 'ADMINISTRADOR'
+    const forzar = (body as { forzar?: unknown })?.forzar === true && esAdmin
+    const motivo = typeof (body as { motivo?: unknown })?.motivo === 'string' ? (body as { motivo: string }).motivo : null
 
-    // Insert la orden
+    // Siempre se crea como BORRADOR; el envío (si aplica) pasa por la misma
+    // compuerta atómica que /enviar (valida stock disponible-para-comprometer).
     const { data: orden, error: ordenError } = await supabaseAdmin
       .from('ordenes_pedido')
       .insert({
@@ -37,8 +42,8 @@ export async function POST(request: NextRequest) {
         bodega_id: datos.bodegaId,
         unidad_receptora_id: datos.unidadReceptoraId,
         observaciones: datos.observaciones ?? null,
-        estado: enviarAhora ? 'ENVIADO' : 'BORRADOR',
-        fecha_envio: enviarAhora ? new Date().toISOString() : null,
+        estado: 'BORRADOR',
+        fecha_envio: null,
       })
       .select('id, numero, estado, created_at')
       .single()
@@ -66,16 +71,61 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No se pudieron crear las líneas' }, { status: 500 })
     }
 
-    // Audit log
+    // Audit log de creación (el envío registra su propio PEDIDO_ENVIADO)
     const { error: auditError } = await supabaseAdmin.from('audit_log').insert({
       usuario_id: user.id,
-      accion: enviarAhora ? 'PEDIDO_ENVIADO' : 'PEDIDO_CREADO',
+      accion: 'PEDIDO_CREADO',
       entidad: 'orden_pedido',
       entidad_id: orden.id,
-      datos_nuevos: { numero: orden.numero, estado: orden.estado, total_lineas: lineas.length },
+      datos_nuevos: { numero: orden.numero, estado: 'BORRADOR', total_lineas: lineas.length },
     })
     if (auditError) {
       console.error('Fallo audit_log:', auditError)
+    }
+
+    let estadoFinal: string = 'BORRADOR'
+    if (enviarAhora) {
+      // Pre-chequeo de stock (mensaje estructurado). El gate real es la función.
+      if (!forzar) {
+        const { data: faltantes, error: verErr } = await rpcPedido<unknown[]>('verificar_stock_envio', { p_orden_id: orden.id })
+        if (verErr) {
+          console.error('Error verificando stock de envío:', verErr)
+          return NextResponse.json({ success: false, error: 'No se pudo verificar el stock' }, { status: 500 })
+        }
+        if (Array.isArray(faltantes) && faltantes.length > 0) {
+          // El borrador queda guardado y recuperable; el admin puede forzar.
+          return NextResponse.json(
+            { success: false, code: 'STOCK_INSUFICIENTE', error: 'El pedido excede el stock disponible',
+              faltantes, puedeForzar: esAdmin, pedido: { id: orden.id, numero: orden.numero, estado: 'BORRADOR' } },
+            { status: 409 }
+          )
+        }
+      }
+
+      const { error: envErr } = await rpcPedido('enviar_orden_pedido', {
+        p_orden_id: orden.id,
+        p_actor_id: user.id,
+        p_forzar: forzar,
+        p_motivo_override: motivo,
+      })
+      if (envErr) {
+        const msg = envErr.message || ''
+        if (msg.includes('STOCK_INSUFICIENTE')) {
+          // Re-consultamos el detalle estructurado en vez de parsear el mensaje.
+          const { data: faltantesRace } = await rpcPedido<unknown[]>('verificar_stock_envio', { p_orden_id: orden.id })
+          return NextResponse.json(
+            { success: false, code: 'STOCK_INSUFICIENTE', error: 'El pedido excede el stock disponible',
+              faltantes: Array.isArray(faltantesRace) ? faltantesRace : [], puedeForzar: esAdmin, pedido: { id: orden.id, numero: orden.numero, estado: 'BORRADOR' } },
+            { status: 409 }
+          )
+        }
+        if (msg.includes('motivo') || msg.includes('bodega')) {
+          return NextResponse.json({ success: false, error: msg }, { status: 400 })
+        }
+        console.error('Error inesperado enviando pedido recién creado:', envErr)
+        return NextResponse.json({ success: false, error: 'No se pudo completar la operación' }, { status: 500 })
+      }
+      estadoFinal = 'ENVIADO'
     }
 
     return NextResponse.json({
@@ -83,7 +133,7 @@ export async function POST(request: NextRequest) {
       pedido: {
         id: orden.id,
         numero: orden.numero,
-        estado: orden.estado,
+        estado: estadoFinal,
         createdAt: orden.created_at,
       },
     })

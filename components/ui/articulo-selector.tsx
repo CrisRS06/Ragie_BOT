@@ -17,6 +17,10 @@ export interface Articulo {
   marca: string | null;
   stockTotal: number;
   lotesActivos: number;
+  /** Cantidad ya comprometida por pedidos abiertos (no descontada del stock). */
+  comprometido?: number;
+  /** stockTotal − comprometido. El envío de un pedido se bloquea si lo excede. */
+  disponibleParaComprometer?: number;
 }
 
 interface ArticuloSelectorProps {
