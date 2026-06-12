@@ -65,7 +65,7 @@ export function Dialog({ open, onClose, children }: DialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
     >
@@ -75,8 +75,17 @@ export function Dialog({ open, onClose, children }: DialogProps) {
         onClick={onClose}
         aria-hidden="true"
       />
-      {/* Content */}
-      <div className="relative z-50 animate-in zoom-in-95 duration-200">
+      {/* Content. w-full + justify-center acotan el ancho al viewport (el modal
+          ya no se sale por los lados en pantallas angostas como un teléfono) y
+          max-h-full deja que DialogContent haga scroll interno en modales altos.
+          El onClick cierra solo si se toca el espacio vacío del wrapper (no el
+          modal), preservando "tocar afuera para cerrar". */}
+      <div
+        className="relative z-50 flex max-h-full w-full justify-center animate-in zoom-in-95 duration-200"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
         {children}
       </div>
     </div>
@@ -88,8 +97,14 @@ export function DialogContent({ className, children }: DialogContentProps) {
   return (
     <div
       className={cn(
-        'bg-white rounded-lg shadow-xl w-full max-w-md mx-4',
+        // Sin mx-4: el padding del contenedor raíz ya separa el modal de los
+        // bordes. El ancho lo limita el wrapper (w-full + justify-center).
+        'bg-white rounded-lg shadow-xl w-full max-w-md',
         'border border-gray-200',
+        // Columna acotada a la altura visible. Combinado con DialogBody
+        // (overflow-y-auto) y header/footer (shrink-0), evita que el contenido
+        // se salga de la pantalla en modales con tablas largas.
+        'flex max-h-[calc(100dvh-2rem)] flex-col',
         className
       )}
     >
@@ -101,7 +116,7 @@ export function DialogContent({ className, children }: DialogContentProps) {
 // Dialog Header
 export function DialogHeader({ className, children }: DialogHeaderProps) {
   return (
-    <div className={cn('px-6 py-4 border-b border-gray-200', className)}>
+    <div className={cn('shrink-0 px-6 py-4 border-b border-gray-200', className)}>
       {children}
     </div>
   );
@@ -128,7 +143,9 @@ export function DialogDescription({ className, children }: DialogDescriptionProp
 // Dialog Body (for content between header and footer)
 export function DialogBody({ className, children }: DialogContentProps) {
   return (
-    <div className={cn('px-6 py-4', className)}>
+    // min-h-0 + overflow-y-auto: en un flex-col acotado, este cuerpo es la única
+    // región que hace scroll cuando el contenido excede la altura disponible.
+    <div className={cn('min-h-0 flex-1 overflow-y-auto px-6 py-4', className)}>
       {children}
     </div>
   );
@@ -139,7 +156,7 @@ export function DialogFooter({ className, children }: DialogFooterProps) {
   return (
     <div
       className={cn(
-        'px-6 py-4 border-t border-gray-200 flex justify-end gap-3',
+        'shrink-0 px-6 py-4 border-t border-gray-200 flex justify-end gap-3',
         className
       )}
     >
