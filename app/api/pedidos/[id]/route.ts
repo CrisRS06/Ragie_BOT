@@ -44,7 +44,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       .from('ordenes_pedido_lineas')
       .select(`
         id, cantidad_solicitada, cantidad_entregada, notas, articulo_id,
-        articulo:articulos!articulo_id(id, sku, nombre, descripcion_sigaf, unidad_medida)
+        articulo:articulos!articulo_id(id, sku, nombre, descripcion_sigaf, unidad_medida, activo)
       `)
       .eq('orden_id', id)
       .order('created_at', { ascending: true })

@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback, use as usePromise } from 'react'
 import Link from 'next/link'
-import { FileDown, ArrowLeft, Pencil } from 'lucide-react'
+import { FileDown, ArrowLeft, Pencil, Copy } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -16,6 +16,7 @@ import { TimelineEstados } from '@/components/pedidos/timeline-estados'
 import { LineasTabla } from '@/components/pedidos/lineas-tabla'
 import { AccionesPanel } from '@/components/pedidos/acciones-panel'
 import { useAuth } from '@/contexts/AuthContext'
+import { hasPermission } from '@/lib/permissions'
 import type { EstadoPedido } from '@/lib/orden-pedido/transiciones'
 
 interface Linea {
@@ -111,6 +112,7 @@ export default function PedidoDetallePage({ params }: { params: Promise<{ id: st
   const esSolicitante = pedido.solicitanteId === user?.id
   const rol = user?.rol
   const puedeEditar = pedido.estado === 'BORRADOR' && (esSolicitante || rol === 'ADMINISTRADOR')
+  const puedeDuplicar = rol ? hasPermission(rol, 'pedidos.crear') : false
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-4">
@@ -119,6 +121,11 @@ export default function PedidoDetallePage({ params }: { params: Promise<{ id: st
           <ArrowLeft className="h-4 w-4 mr-1" /> Volver al listado
         </Link>
         <div className="flex gap-2">
+          {puedeDuplicar && (
+            <Link href={`/pedidos/${pedido.id}/duplicar`}>
+              <Button variant="outline" size="sm"><Copy className="h-4 w-4 mr-1" /> Duplicar pedido</Button>
+            </Link>
+          )}
           {puedeEditar && (
             <Link href={`/pedidos/${pedido.id}/editar`}>
               <Button variant="outline" size="sm"><Pencil className="h-4 w-4 mr-1" /> Editar borrador</Button>

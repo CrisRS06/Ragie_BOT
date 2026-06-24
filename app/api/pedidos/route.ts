@@ -11,6 +11,7 @@ import { hasPermission } from '@/lib/permissions'
 import { crearOrdenPedidoSchema } from '@/lib/validations/orden-pedido.schema'
 import { resolverUsuarios } from '@/lib/orden-pedido/resolver-usuarios'
 import { rpcPedido } from '@/lib/orden-pedido/rpc'
+import { articulosInactivos } from '@/lib/orden-pedido/articulos-activos'
 import type { Database } from '@/lib/supabase/database.types'
 
 export async function POST(request: NextRequest) {
@@ -32,6 +33,25 @@ export async function POST(request: NextRequest) {
     const esAdmin = user.rol === 'ADMINISTRADOR'
     const forzar = (body as { forzar?: unknown })?.forzar === true && esAdmin
     const motivo = typeof (body as { motivo?: unknown })?.motivo === 'string' ? (body as { motivo: string }).motivo : null
+
+    // Defensa en profundidad: ningun pedido puede incluir articulos desactivados
+    // o inexistentes (la UI ya los bloquea, pero el cliente es manipulable).
+    const articuloIds = datos.lineas.map((l) => l.articuloId)
+    const { data: filasArt, error: artErr } = await supabaseAdmin
+      .from('articulos')
+      .select('id, activo')
+      .in('id', articuloIds)
+    if (artErr) {
+      console.error('Error verificando articulos activos:', artErr)
+      return NextResponse.json({ success: false, error: 'No se pudieron verificar los articulos' }, { status: 500 })
+    }
+    const inactivos = articulosInactivos(articuloIds, filasArt || [])
+    if (inactivos.length > 0) {
+      return NextResponse.json(
+        { success: false, code: 'ARTICULO_INACTIVO', error: 'El pedido incluye articulos desactivados o inexistentes', articulosInactivos: inactivos },
+        { status: 400 }
+      )
+    }
 
     // Siempre se crea como BORRADOR; el envío (si aplica) pasa por la misma
     // compuerta atómica que /enviar (valida stock disponible-para-comprometer).

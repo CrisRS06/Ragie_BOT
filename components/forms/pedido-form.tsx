@@ -17,7 +17,8 @@ import { Card } from '@/components/ui/card'
 import { BodegaSelector } from '@/components/ui/bodega-selector'
 import { ArticuloSelector, type Articulo } from '@/components/ui/articulo-selector'
 import { toast } from '@/lib/hooks/use-toast'
-import { Plus, Trash2, Save, Send } from 'lucide-react'
+import { Plus, Trash2, Save, Send, Copy } from 'lucide-react'
+import { hayLineasInactivas, type ValoresDuplicado } from '@/lib/orden-pedido/duplicar'
 
 interface UnidadReceptora {
   id: string
@@ -30,19 +31,17 @@ interface LineaForm {
   articuloId: string
   articulo: Articulo | null
   cantidad: string
+  inactivo?: boolean
+  etiqueta?: string
 }
 
-export interface PedidoFormValoresIniciales {
-  bodegaId: string
-  unidadReceptoraId: string
-  observaciones: string
-  lineas: { articuloId: string; articulo: Articulo | null; cantidad: string }[]
-}
+export type PedidoFormValoresIniciales = ValoresDuplicado
 
 interface PedidoFormProps {
-  modo?: 'crear' | 'editar'
+  modo?: 'crear' | 'editar' | 'duplicar'
   pedidoId?: string
   valoresIniciales?: PedidoFormValoresIniciales
+  origenUnidadReceptoraId?: string
 }
 
 const emptyLinea = (): LineaForm => ({
@@ -59,12 +58,15 @@ function lineasIniciales(v?: PedidoFormValoresIniciales): LineaForm[] {
     articuloId: l.articuloId,
     articulo: l.articulo,
     cantidad: l.cantidad,
+    inactivo: l.inactivo,
+    etiqueta: l.etiqueta,
   }))
 }
 
-export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales }: PedidoFormProps) {
+export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales, origenUnidadReceptoraId }: PedidoFormProps) {
   const router = useRouter()
   const esEditar = modo === 'editar'
+  const esDuplicar = modo === 'duplicar'
 
   const [unidades, setUnidades] = useState<UnidadReceptora[]>([])
   const [unidadesError, setUnidadesError] = useState(false)
@@ -72,7 +74,7 @@ export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales }: Pedid
   const [unidadReceptoraId, setUnidadReceptoraId] = useState(valoresIniciales?.unidadReceptoraId ?? '')
   const [observaciones, setObservaciones] = useState(valoresIniciales?.observaciones ?? '')
   const [lineas, setLineas] = useState<LineaForm[]>(() => lineasIniciales(valoresIniciales))
-  const [loading, setLoading] = useState<'guardar' | 'enviar' | null>(null)
+  const [loading, setLoading] = useState<'guardar' | 'enviar' | 'guardar_otra' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
@@ -117,6 +119,27 @@ export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales }: Pedid
     []
   )
 
+  // Reemplaza el articulo de una linea (al elegir uno nuevo en el selector):
+  // setea articulo + articuloId y limpia la marca de inactivo.
+  const reemplazarArticulo = useCallback((id: string, art: Articulo | null) => {
+    setLineas((p) =>
+      p.map((l) =>
+        l.id === id
+          ? { ...l, articulo: art, articuloId: art?.id ?? '', inactivo: art ? false : l.inactivo, etiqueta: art ? undefined : l.etiqueta }
+          : l
+      )
+    )
+    setFieldErrors((prev) => (Object.keys(prev).length === 0 ? prev : {}))
+  }, [])
+
+  // En modo duplicar la unidad receptora arranca vacia: enfocarla para que
+  // elegir la sucursal destino sea la primera accion obvia.
+  useEffect(() => {
+    if (esDuplicar) document.getElementById('unidad')?.focus()
+  }, [esDuplicar])
+
+  const hayInactivas = hayLineasInactivas(lineas)
+
   function validar(): boolean {
     const errs: Record<string, string> = {}
     if (!bodegaId) errs.bodegaId = 'Seleccione la bodega'
@@ -125,7 +148,9 @@ export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales }: Pedid
     // artículo aparece en dos líneas. Lo cazamos acá y apuntamos a la línea exacta.
     const primeraLineaPorArticulo = new Map<string, number>()
     lineas.forEach((l, i) => {
-      if (!l.articuloId) {
+      if (l.inactivo) {
+        errs[`linea_${i}_articulo`] = 'Artículo desactivado: quitá la línea o reemplazá el artículo'
+      } else if (!l.articuloId) {
         errs[`linea_${i}_articulo`] = 'Seleccione un artículo'
       } else {
         const primera = primeraLineaPorArticulo.get(l.articuloId)
@@ -157,7 +182,7 @@ export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales }: Pedid
     return true
   }
 
-  async function submit(modoSubmit: 'guardar' | 'enviar') {
+  async function submit(modoSubmit: 'guardar' | 'enviar' | 'guardar_otra') {
     setError(null)
     if (!validar()) return
     setLoading(modoSubmit)
@@ -219,7 +244,18 @@ export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales }: Pedid
 
       if (esEditar) toast.success('Cambios guardados')
       else if (modoSubmit === 'enviar') toast.success('Pedido enviado')
+      else if (modoSubmit === 'guardar_otra') toast.success('Borrador guardado', `${data.pedido.numero} creado. Segui con la proxima sucursal.`)
       else toast.success('Borrador guardado')
+
+      if (modoSubmit === 'guardar_otra') {
+        // Reset para la proxima sucursal: mismas lineas/bodega/observaciones,
+        // unidad receptora vacia. No navega.
+        setUnidadReceptoraId('')
+        setFieldErrors({})
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        document.getElementById('unidad')?.focus()
+        return
+      }
 
       router.push(`/pedidos/${esEditar ? pedidoId : data.pedido.id}`)
     } catch (err) {
@@ -262,6 +298,11 @@ export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales }: Pedid
                 No se pudieron cargar las unidades receptoras. Recargá la página para reintentar.
               </p>
             )}
+            {esDuplicar && origenUnidadReceptoraId && unidadReceptoraId === origenUnidadReceptoraId && (
+              <p className="mt-1 text-xs text-amber-600">
+                Es la misma unidad receptora del pedido original. ¿Es una reposicion a proposito?
+              </p>
+            )}
           </div>
         </div>
         <div className="mt-3">
@@ -299,16 +340,22 @@ export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales }: Pedid
               <div
                 key={linea.id}
                 id={`campo-linea-${idx}`}
-                className="grid gap-2 sm:grid-cols-[1fr_140px_40px] items-start border-b border-zinc-100 pb-3 last:border-0"
+                className={`grid gap-2 sm:grid-cols-[1fr_140px_40px] items-start pb-3 last:border-0 ${
+                  linea.inactivo
+                    ? 'rounded-md border border-red-300 bg-red-50/60 p-2'
+                    : 'border-b border-zinc-100'
+                }`}
               >
                 <div>
                   <Label required>Artículo #{idx + 1}</Label>
+                  {linea.inactivo && (
+                    <p className="mb-1 text-xs text-red-600">
+                      Artículo desactivado: {linea.etiqueta}. Quitá la línea o reemplazá el artículo.
+                    </p>
+                  )}
                   <ArticuloSelector
                     value={linea.articuloId}
-                    onChange={(art) => {
-                      actualizarLinea(linea.id, 'articulo', art)
-                      actualizarLinea(linea.id, 'articuloId', art?.id || '')
-                    }}
+                    onChange={(art) => reemplazarArticulo(linea.id, art)}
                     bodegaId={bodegaId || undefined}
                     soloConStock={true}
                     error={fieldErrors[`linea_${idx}_articulo`]}
@@ -348,11 +395,21 @@ export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales }: Pedid
         </div>
       </Card>
 
-      <div className="flex gap-2 justify-end">
+      <div className="flex flex-wrap gap-2 justify-end">
+        {esDuplicar && (
+          <Button
+            onClick={() => submit('guardar_otra')}
+            disabled={loading !== null || hayInactivas}
+            isLoading={loading === 'guardar_otra'}
+          >
+            <Copy className="h-4 w-4 mr-1" />
+            Guardar y duplicar otra
+          </Button>
+        )}
         <Button
           variant="outline"
           onClick={() => submit('guardar')}
-          disabled={loading !== null}
+          disabled={loading !== null || hayInactivas}
           isLoading={loading === 'guardar'}
         >
           <Save className="h-4 w-4 mr-1" />
@@ -360,8 +417,9 @@ export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales }: Pedid
         </Button>
         {!esEditar && (
           <Button
+            variant={esDuplicar ? 'outline' : 'default'}
             onClick={() => submit('enviar')}
-            disabled={loading !== null}
+            disabled={loading !== null || hayInactivas}
             isLoading={loading === 'enviar'}
           >
             <Send className="h-4 w-4 mr-1" />
