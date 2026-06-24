@@ -149,19 +149,19 @@ export function PedidoForm({ modo = 'crear', pedidoId, valoresIniciales, origenU
     const primeraLineaPorArticulo = new Map<string, number>()
     lineas.forEach((l, i) => {
       if (l.inactivo) {
-        errs[`linea_${i}_articulo`] = 'Articulo desactivado: quita la linea o reemplaza el articulo'
+        errs[`linea_${i}_articulo`] = 'Artículo desactivado: quitá la línea o reemplazá el artículo'
       } else if (!l.articuloId) {
-        errs[`linea_${i}_articulo`] = 'Seleccione un articulo'
+        errs[`linea_${i}_articulo`] = 'Seleccione un artículo'
       } else {
         const primera = primeraLineaPorArticulo.get(l.articuloId)
         if (primera !== undefined) {
-          errs[`linea_${i}_articulo`] = `Articulo repetido: ya esta en la linea #${primera}. Borre esta linea y sume la cantidad en la #${primera}.`
+          errs[`linea_${i}_articulo`] = `Artículo repetido: ya está en la línea #${primera}. Borre esta línea y sume la cantidad en la #${primera}.`
         } else {
           primeraLineaPorArticulo.set(l.articuloId, i + 1)
         }
       }
       const c = Number(l.cantidad)
-      if (!c || c <= 0) errs[`linea_${i}_cantidad`] = 'Cantidad invalida'
+      if (!c || c <= 0) errs[`linea_${i}_cantidad`] = 'Cantidad inválida'
     })
     setFieldErrors(errs)
 
